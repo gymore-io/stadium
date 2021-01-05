@@ -4,6 +4,8 @@ use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{mem, ops};
 
+use mem::MaybeUninit;
+
 static NEXT_BUILDER_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// A chunk of allocated memory that stores a bunch of values of different types.
@@ -332,15 +334,27 @@ impl PoolBuilder {
     /// ## Panics
     ///
     /// This function panics if `T` is a zero-sized type.
-    pub fn insert<T: 'static>(&mut self, init: T) -> ObjectHandle<T> {
+    pub fn insert<T>(&mut self, init: T) -> ObjectHandle<T> {
         let index = self.reserved_objects.len();
         self.reserved_objects.push(ReservedObject::new(init));
-
         ObjectHandle {
             id: self.id,
             index,
             _marker: PhantomData,
         }
+    }
+
+    /// Prepares the insertion of a `MayveUninit<T>` into the pool where
+    /// `T` is the type described by the given `ObjectMeta` structure.
+    ///
+    /// ## Panics
+    ///
+    /// This function panics if the object described by `ObjectMeta` is a
+    /// a zero-sized type.
+    pub fn insert_raw(&mut self, meta: ObjectMeta) -> RawObjectHandle {
+        let index = self.reserved_objects.len();
+        self.reserved_objects.push(ReservedObject::uninit(meta));
+        RawObjectHandle { index }
     }
 
     /// Builds a new `LocalPool`.
@@ -453,7 +467,7 @@ impl From<PoolBuilder> for LocalPool {
 
 /// Stores information about a `T`.
 #[derive(Clone, Copy)]
-struct ObjectMeta {
+pub struct ObjectMeta {
     /// The layout of `T`.
     layout: Layout,
     /// A function that causes a `T` to be dropped.
@@ -497,22 +511,40 @@ impl ReservedObject {
 
     // the static lifetime is there because we are going to drop the T without
     // owning any of the potential references it could have.
-    fn new<T: 'static>(init: T) -> Self {
-        // Allocate memory on the heap for the initial value
-        let meta = ObjectMeta::of::<T>();
+    fn new<T>(init: T) -> Self {
+        let uninit = Self::uninit(ObjectMeta::of::<T>());
 
+        // SAFETY: This pointer is not aliased anywhere and is properly aligned.
+        // It is also know to not be initialized.
+        unsafe {
+            uninit
+                .initial_value
+                .as_ptr()
+                .cast::<MaybeUninit<T>>()
+                .write(MaybeUninit::new(init));
+        };
+
+        // The initial value is now properly initialized.
+        // T is now `T` instead of `MaybeUninit<T>`.
+
+        uninit // now init
+    }
+
+    /// Creates a new instance of `ReservedObject` for a `MaybeUninit<T>`
+    /// where `T` is the type of the object described by the given `ObjectMeta`.
+    ///
+    /// ## Panics
+    ///
+    /// This function panics if `meta` describes a zero-sized type.
+    fn uninit(meta: ObjectMeta) -> Self {
         if meta.layout.size() == 0 {
             panic!("You cannot put a zero-sized type into a `LocalPool`");
         }
 
         let ptr = unsafe {
             // SAFETY: `T` is not a zero-sized type.
-            NonNull::new(alloc(meta.layout) as *mut T).expect("Failed to allocate memory for a `T`")
+            NonNull::new(alloc(meta.layout)).expect("Failed to allocate memory for a `T`")
         };
-
-        // The initial value is now properly initialized.
-        // SAFETY: This pointer is not aliased anywhere and is properly aligned.
-        unsafe { ptr.as_ptr().write(init) };
 
         Self {
             initial_value: ptr.cast(),
@@ -678,17 +710,4 @@ struct ObjectLocation {
     data: *mut u8,
     /// Information about the object.
     meta: ObjectMeta,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn object_location_have_nonnull_optimizations() {
-        assert_eq!(
-            std::mem::size_of::<ObjectLocation>(),
-            std::mem::size_of::<Option<ObjectLocation>>(),
-        )
-    }
 }
