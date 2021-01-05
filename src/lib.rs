@@ -34,7 +34,7 @@ pub fn builder() -> Builder {
 ///
 /// let mut stadium = builder.build();
 ///
-/// pool[h_vec][0] = 2;
+/// stadium[h_vec][0] = 2;
 /// assert_eq!(&stadium[h_vec][..], &[2, 2, 3, 4]);
 ///
 /// assert_eq!(stadium[h_str], "World");
@@ -117,8 +117,8 @@ impl Stadium {
     ///
     /// // SAFETY: The handle was created for this stadium.
     /// unsafe {
-    ///     assert_eq!(stadium.replace_unechecked(handle, 5), 4);
-    ///     assert_eq!(stadium.get_unchecked(handle), &4);
+    ///     assert_eq!(stadium.replace_unchecked(handle, 5), 4);
+    ///     assert_eq!(stadium.get_unchecked(handle), &5);
     /// }
     /// ```
     #[inline(always)]
@@ -198,8 +198,8 @@ impl Stadium {
     ///
     /// let mut stadium = builder.build();
     ///
-    /// *stadium.get_mut(h_num).unwrap() = 5;
-    /// stadium.get_mut(h_vec).unwrap().push(4);
+    /// *stadium.get_mut(h_num) = 5;
+    /// stadium.get_mut(h_vec).push(4);
     ///
     /// assert_eq!(stadium.get(h_num), &5);
     /// assert_eq!(&stadium.get(h_vec)[..], &[1, 2, 3, 4])
