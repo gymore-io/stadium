@@ -1,5 +1,5 @@
 #[test]
-#[should_panic(expected = "You cannot create a pool with no elements in it")]
+#[should_panic(expected = "You cannot create a stadium with no elements in it")]
 fn panic_on_build_with_no_objects() {
     stadium::builder().build();
 }
@@ -95,7 +95,7 @@ fn get_mut_values_from_stadium() {
 }
 
 #[test]
-#[should_panic(expected = "The given handle was not created for this pool")]
+#[should_panic(expected = "The given handle was not created for this stadium")]
 fn get_panics_on_invalid_handle() {
     let mut b_1 = stadium::builder();
     let mut b_2 = stadium::builder();
@@ -106,7 +106,7 @@ fn get_panics_on_invalid_handle() {
 }
 
 #[test]
-#[should_panic(expected = "The given handle was not created for this pool")]
+#[should_panic(expected = "The given handle was not created for this stadium")]
 fn get_mut_panics_on_invalid_handle() {
     let mut b_1 = stadium::builder();
     let mut b_2 = stadium::builder();
@@ -117,7 +117,7 @@ fn get_mut_panics_on_invalid_handle() {
 }
 
 #[test]
-#[should_panic(expected = "The given handle was not created for this pool")]
+#[should_panic(expected = "The given handle was not created for this stadium")]
 fn replace_panics_on_invalid_handle() {
     let mut b_1 = stadium::builder();
     let mut b_2 = stadium::builder();

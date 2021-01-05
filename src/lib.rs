@@ -50,17 +50,17 @@ pub struct Stadium {
     /// A pointer to the owned data.
     data: NonNull<u8>,
 
-    /// The layout that was used to allocate the pool.
+    /// The layout that was used to allocate the stadium.
     layout: Layout,
 
     /// Maps an `index` to the location of an object.
     ///
-    /// SAFETY: All the `ObjectLocation`s within this vector must reference objects
+    /// SAFETY: All the `Location`s within this vector must reference objects
     /// owned by the stadium.
     ///
     /// When a handle is given by a `Builder`, the `index` and the `T` of that
-    /// handle must always match the `ObjectLocation` at the given index in this vector.
-    locations: Vec<ObjectLocation>,
+    /// handle must always match the `Location` at the given index in this vector.
+    locations: Vec<Location>,
 }
 
 impl Stadium {
@@ -78,7 +78,7 @@ impl Stadium {
         Builder::new()
     }
 
-    /// Checks if the given `ObjectHandle` can be safely used with this `Stadium`.
+    /// Checks if the given `Handle` can be safely used with this `Stadium`.
     ///
     /// ## Example
     ///
@@ -97,7 +97,7 @@ impl Stadium {
     /// assert_eq!(stadium_2.is_valid_handle(handle_1), false);
     /// ```
     #[inline(always)]
-    pub fn is_valid_handle<T>(&self, handle: ObjectHandle<T>) -> bool {
+    pub fn is_valid_handle<T>(&self, handle: Handle<T>) -> bool {
         handle.id == self.id
     }
 
@@ -122,7 +122,7 @@ impl Stadium {
     /// }
     /// ```
     #[inline(always)]
-    pub unsafe fn replace_unchecked<T>(&mut self, handle: ObjectHandle<T>, val: T) -> T {
+    pub unsafe fn replace_unchecked<T>(&mut self, handle: Handle<T>, val: T) -> T {
         mem::replace(self.get_unchecked_mut(handle), val)
     }
 
@@ -143,7 +143,7 @@ impl Stadium {
     /// assert_eq!(stadium.get(handle), &6);
     /// ```
     #[inline(always)]
-    pub fn replace<T>(&mut self, handle: ObjectHandle<T>, val: T) -> T {
+    pub fn replace<T>(&mut self, handle: Handle<T>, val: T) -> T {
         mem::replace(self.get_mut(handle), val)
     }
 
@@ -151,7 +151,7 @@ impl Stadium {
     ///
     /// ## Panics
     ///
-    /// This function panics if the given `ObjectHandle` was not created for this
+    /// This function panics if the given `Handle` was not created for this
     /// `Stadium`.
     ///
     /// ## Example
@@ -168,7 +168,7 @@ impl Stadium {
     /// assert_eq!(stadium.get(h_num), &2023);
     /// ```
     #[inline]
-    pub fn get<T>(&self, handle: ObjectHandle<T>) -> &T {
+    pub fn get<T>(&self, handle: Handle<T>) -> &T {
         // SAFETY: If a handle is valid, its index is always in the bounds of `locations`.
         if self.is_valid_handle(handle) {
             unsafe {
@@ -177,7 +177,7 @@ impl Stadium {
                 self.get_unchecked(handle)
             }
         } else {
-            panic!("The given handle was not created for this pool");
+            panic!("The given handle was not created for this stadium");
         }
     }
 
@@ -185,7 +185,7 @@ impl Stadium {
     ///
     /// ## Panics
     ///
-    /// This function panics if the given `ObjectHandle` was not created for this
+    /// This function panics if the given `Handle` was not created for this
     /// `Stadium`.
     ///
     /// ## Example
@@ -205,12 +205,12 @@ impl Stadium {
     /// assert_eq!(&stadium.get(h_vec)[..], &[1, 2, 3, 4])
     /// ```
     #[inline]
-    pub fn get_mut<T>(&mut self, handle: ObjectHandle<T>) -> &mut T {
+    pub fn get_mut<T>(&mut self, handle: Handle<T>) -> &mut T {
         // SAFETY: see `Stadium::get`
         if self.is_valid_handle(handle) {
             unsafe { self.get_unchecked_mut(handle) }
         } else {
-            panic!("The given handle was not created for this pool");
+            panic!("The given handle was not created for this stadium");
         }
     }
 
@@ -232,7 +232,7 @@ impl Stadium {
     /// unsafe { assert_eq!(stadium.get_unchecked(handle), &5) };
     /// ```
     #[inline(always)]
-    pub unsafe fn get_unchecked<T>(&self, handle: ObjectHandle<T>) -> &T {
+    pub unsafe fn get_unchecked<T>(&self, handle: Handle<T>) -> &T {
         // SAFETY: The caller must ensure that the handle was created for this stadium.
         // The stored index is always in bounds.
         let location = self.locations.get_unchecked(handle.index);
@@ -240,7 +240,7 @@ impl Stadium {
         // SAFETY: This cast is valid because the object handle "remembers" the
         // type of the object at this location.
         //
-        // The dereference is valid be cause it is an invariant of the pool
+        // The dereference is valid be cause it is an invariant of the stadium
         // that every location of the `locations` vector is valid and part
         // of the stadium.
         &*location.data.cast()
@@ -260,14 +260,14 @@ impl Stadium {
     /// let handle = builder.insert(5);
     /// let mut stadium = builder.build();
     ///
-    /// // SAFETY: The handle was provided by the builder of this pool.
+    /// // SAFETY: The handle was provided by the builder of this stadium.
     /// unsafe {
     ///     *stadium.get_unchecked_mut(handle) = 4;
     ///     assert_eq!(stadium.get_unchecked(handle), &4);
     /// }
     /// ```
     #[inline(always)]
-    pub unsafe fn get_unchecked_mut<T>(&mut self, handle: ObjectHandle<T>) -> &mut T {
+    pub unsafe fn get_unchecked_mut<T>(&mut self, handle: Handle<T>) -> &mut T {
         // SAFETY: see `Stadium::get_unchecked`
         &mut *self.locations.get_unchecked_mut(handle.index).data.cast()
     }
@@ -277,7 +277,7 @@ impl Drop for Stadium {
     fn drop(&mut self) {
         for location in &self.locations {
             if let Some(drop_fn) = location.meta.drop_fn {
-                // SAFETY: The data in the pool is always initialized.
+                // SAFETY: The data in the stadium is always initialized.
                 unsafe { drop_fn(location.data) };
             }
         }
@@ -290,24 +290,24 @@ impl Drop for Stadium {
     }
 }
 
-impl<T> ops::Index<ObjectHandle<T>> for Stadium {
+impl<T> ops::Index<Handle<T>> for Stadium {
     type Output = T;
 
     #[inline(always)]
-    fn index(&self, handle: ObjectHandle<T>) -> &Self::Output {
+    fn index(&self, handle: Handle<T>) -> &Self::Output {
         self.get(handle)
     }
 }
 
-impl<T> ops::IndexMut<ObjectHandle<T>> for Stadium {
+impl<T> ops::IndexMut<Handle<T>> for Stadium {
     #[inline(always)]
-    fn index_mut(&mut self, handle: ObjectHandle<T>) -> &mut Self::Output {
+    fn index_mut(&mut self, handle: Handle<T>) -> &mut Self::Output {
         self.get_mut(handle)
     }
 }
 
 /// Locates an object within a `Stadium`.
-struct ObjectLocation {
+struct Location {
     /// A pointer to the actual object.
     data: *mut u8,
     /// Information about the object.
@@ -318,7 +318,7 @@ struct ObjectLocation {
 /// the `Stadium::builder` function.
 pub struct Builder {
     id: usize,
-    reserved_objects: Vec<ReservedObject>,
+    reserved_objects: Vec<Reserved>,
 }
 
 impl Builder {
@@ -333,39 +333,37 @@ impl Builder {
     #[inline(always)]
     pub fn new() -> Self {
         Self {
-            // TODO: Figure out what Ordering is the best for this case because we don't
-            // really care about the order in which those operations are being computed
             id: NEXT_BUILDER_ID.fetch_add(1, Ordering::Relaxed),
             reserved_objects: Vec::new(),
         }
     }
 
-    /// Prepares the insertion of `init` into the pool.
+    /// Prepares the insertion of `init` into the stadium.
     ///
     /// ## Panics
     ///
     /// This function panics if `T` is a zero-sized type.
-    pub fn insert<T>(&mut self, init: T) -> ObjectHandle<T> {
+    pub fn insert<T>(&mut self, init: T) -> Handle<T> {
         let index = self.reserved_objects.len();
-        self.reserved_objects.push(ReservedObject::new(init));
-        ObjectHandle {
+        self.reserved_objects.push(Reserved::new(init));
+        Handle {
             id: self.id,
             index,
             _marker: PhantomData,
         }
     }
 
-    /// Prepares the insertion of a `MayveUninit<T>` into the pool where
+    /// Prepares the insertion of a `MayveUninit<T>` into the stadium where
     /// `T` is the type described by the given `ObjectMeta` structure.
     ///
     /// ## Panics
     ///
     /// This function panics if the object described by `ObjectMeta` is a
     /// a zero-sized type.
-    pub fn insert_raw(&mut self, meta: ObjectMeta) -> RawObjectHandle {
+    pub fn insert_raw(&mut self, meta: ObjectMeta) -> RawHandle {
         let index = self.reserved_objects.len();
-        self.reserved_objects.push(ReservedObject::uninit(meta));
-        RawObjectHandle { index }
+        self.reserved_objects.push(Reserved::uninit(meta));
+        RawHandle { index }
     }
 
     /// Builds a new `Stadium`.
@@ -374,13 +372,13 @@ impl Builder {
     ///
     /// This function can panics if one of the following events occure:
     ///  * The builder is empty
-    ///  * The function fails to allocate for the pool
+    ///  * The function fails to allocate for the stadium
     pub fn build(self) -> Stadium {
         let objects = self.reserved_objects;
         let id = self.id;
 
         if objects.is_empty() {
-            panic!("You cannot create a pool with no elements in it");
+            panic!("You cannot create a stadium with no elements in it");
         }
 
         let mut total_size = 0;
@@ -392,25 +390,25 @@ impl Builder {
         }
 
         let layout = Layout::from_size_align(total_size, max_align)
-            .expect("Failed to compute the layout of the pool");
+            .expect("Failed to compute the layout of the stadium");
 
-        // SAFETY: A `ReservedObject` cannot store a zero-sized type and we know the
+        // SAFETY: A `Reserved` cannot store a zero-sized type and we know the
         // `reserved_objects` vector is not empty. Therefor, `total_size` must be
         // non-null.
-        let ptr =
-            unsafe { NonNull::new(alloc(layout)).expect("Failed to allocate memory for the pool") };
+        let ptr = unsafe {
+            NonNull::new(alloc(layout)).expect("Failed to allocate memory for the stadium")
+        };
 
         let object_count = objects.len();
 
-        let mut sorted_vector: Vec<(usize, ReservedObject)> =
-            objects.into_iter().enumerate().collect();
+        let mut sorted_vector: Vec<(usize, Reserved)> = objects.into_iter().enumerate().collect();
 
         // Sort the vector so that objects are sorted by align (ascending).
         sorted_vector.sort_unstable_by_key(|(_, o)| o.meta.layout.align());
 
         // We need this structure to map the handles that the builder has given
-        // to actual objects within the pool.
-        let mut locations: Vec<ObjectLocation> = Vec::with_capacity(object_count);
+        // to actual objects within the stadium.
+        let mut locations: Vec<Location> = Vec::with_capacity(object_count);
 
         let mut cursor = ptr.as_ptr();
         for (original_index, obj) in sorted_vector.into_iter().rev() {
@@ -430,8 +428,8 @@ impl Builder {
             // This works because the alignement is always a power of 2.
 
             // SAFETY: it is important that the index is the same as the index that
-            // was given to the used through the `ObjectHandle`. This index will
-            // be trusted by the `LocalPool` for the type of the object and for its
+            // was given to the used through the `Handle`. This index will
+            // be trusted by the `Stadium` for the type of the object and for its
             // location.
             //
             // The `locations` vector was created with a capacity of `object_count`
@@ -441,7 +439,7 @@ impl Builder {
                 locations
                     .as_mut_ptr()
                     .add(original_index)
-                    .write(ObjectLocation { meta, data: cursor });
+                    .write(Location { meta, data: cursor });
             }
 
             // SAFETY: We own the data. A safety check will be done after the loop.
@@ -455,7 +453,7 @@ impl Builder {
         // Safety check that should always pass
         assert_eq!(cursor as usize, ptr.as_ptr() as usize + total_size);
 
-        // Now the pool is properly initialized.
+        // Now the stadium is properly initialized.
 
         Stadium {
             id,
@@ -506,15 +504,15 @@ impl ObjectMeta {
 /// Stores information about a `T` as well as an initialized instance of `T`.
 ///
 /// This structure never stores a zero-sized struct.
-struct ReservedObject {
+struct Reserved {
     /// Stores information about a `T`.
     meta: ObjectMeta,
     /// A pointer to an initialized value of type `T`.
     initial_value: NonNull<u8>,
 }
 
-impl ReservedObject {
-    /// Creates a new instance of `ReservedObject` from the given initial value.
+impl Reserved {
+    /// Creates a new instance of `Reserved` from the given initial value.
     ///
     /// ## Panics
     ///
@@ -541,7 +539,7 @@ impl ReservedObject {
         uninit // now init
     }
 
-    /// Creates a new instance of `ReservedObject` for a `MaybeUninit<T>`
+    /// Creates a new instance of `Reserved` for a `MaybeUninit<T>`
     /// where `T` is the type of the object described by the given `ObjectMeta`.
     ///
     /// ## Panics
@@ -584,7 +582,7 @@ impl ReservedObject {
     }
 }
 
-impl Drop for ReservedObject {
+impl Drop for Reserved {
     fn drop(&mut self) {
         // We have to drop the initial value that was not used.
         if let Some(drop_fn) = self.meta.drop_fn {
@@ -601,8 +599,8 @@ impl Drop for ReservedObject {
 /// A safe handle to a specific object stored in a specific `Stadium`. This handle can
 /// be optained from the `Builder::insert` function.
 #[derive(PartialEq, Eq, Hash, Debug)]
-pub struct ObjectHandle<T> {
-    /// The id of the pool this handle exist for.
+pub struct Handle<T> {
+    /// The id of the stadium this handle exist for.
     id: usize,
     /// The index of the location of the object referenced by this handle.
     index: usize,
@@ -611,7 +609,7 @@ pub struct ObjectHandle<T> {
     _marker: PhantomData<*mut T>,
 }
 
-impl<T> Clone for ObjectHandle<T> {
+impl<T> Clone for Handle<T> {
     #[inline(always)]
     fn clone(&self) -> Self {
         Self {
@@ -622,10 +620,10 @@ impl<T> Clone for ObjectHandle<T> {
     }
 }
 
-impl<T> Copy for ObjectHandle<T> {}
+impl<T> Copy for Handle<T> {}
 
-impl<T> ObjectHandle<T> {
-    /// Converts this `ObjectHandle` into a `RawObjectHandle`.
+impl<T> Handle<T> {
+    /// Converts this `Handle` into a `RawHandle`.
     ///
     /// ## Example
     ///
@@ -634,25 +632,25 @@ impl<T> ObjectHandle<T> {
     /// let raw_handle = builder.insert("Hello").raw();
     /// ```
     #[inline(always)]
-    pub fn raw(self) -> RawObjectHandle {
-        RawObjectHandle { index: self.index }
+    pub fn raw(self) -> RawHandle {
+        RawHandle { index: self.index }
     }
 }
 
 /// A handle to a `T` that does not own a `T`. This handle dos not remember
 /// what stadium created it.
-pub struct RawObjectHandle {
+pub struct RawHandle {
     /// The index of the location of the object referenced by this handle.
     index: usize,
 }
 
-impl RawObjectHandle {
-    /// Recreate an `ObjectHandle` from this `RawObjectHandle`.
+impl RawHandle {
+    /// Recreate an `Handle` from this `RawHandle`.
     ///
     /// ## Safety
     ///
-    ///  * The generic type parameter `T` must be the same as the original `ObjectHandle`
-    /// that was used to produce this `RawObjectHandle`.
+    ///  * The generic type parameter `T` must be the same as the original `Handle`
+    /// that was used to produce this `RawHandle`.
     ///  * The given `Stadium` must be the one associated with the original handle.
     ///
     /// ## Example
@@ -664,27 +662,27 @@ impl RawObjectHandle {
     ///
     /// let raw_handle = handle.raw();
     ///
-    /// // SAFETY: The handle was given by the builder that created the pool and was
+    /// // SAFETY: The handle was given by the builder that created the stadium and was
     /// // created for a `i32`.
     /// let handle = unsafe { raw_handle.trust::<i32>(&stadium) };
     ///
     /// assert_eq!(stadium[handle], 5);
     /// ```
     #[inline(always)]
-    pub unsafe fn trust<T>(self, stadium: &Stadium) -> ObjectHandle<T> {
-        ObjectHandle {
+    pub unsafe fn trust<T>(self, stadium: &Stadium) -> Handle<T> {
+        Handle {
             index: self.index,
             id: stadium.id,
             _marker: PhantomData,
         }
     }
 
-    /// Recreate an `ObjectHandle` from this `RawObjectHandle`.
+    /// Recreate an `Handle` from this `RawHandle`.
     ///
     /// ## Safety
     ///
-    ///  * The generic type parameter `T` must be the same as the original `ObjectHandle`
-    /// that was used to produce this `RawObjectHandle`.
+    ///  * The generic type parameter `T` must be the same as the original `Handle`
+    /// that was used to produce this `RawHandle`.
     ///  * The given `Builder` must be the one associated with the original handle.
     ///
     /// ## Example
@@ -700,8 +698,8 @@ impl RawObjectHandle {
     /// assert_eq!(stadium[handle], 5);
     /// ```
     #[inline(always)]
-    pub unsafe fn trust_with_builder<T>(self, builder: &Builder) -> ObjectHandle<T> {
-        ObjectHandle {
+    pub unsafe fn trust_with_builder<T>(self, builder: &Builder) -> Handle<T> {
+        Handle {
             index: self.index,
             id: builder.id,
             _marker: PhantomData,
