@@ -8,14 +8,26 @@ use mem::MaybeUninit;
 
 static NEXT_BUILDER_ID: AtomicUsize = AtomicUsize::new(0);
 
+/// Creates a new `Builder`.
+///
+/// ## Example
+///
+/// ```rust
+/// let builder = stadium::builder();
+///
+/// /* profit */
+/// ```
+#[inline(always)]
+pub fn builder() -> Builder {
+    Builder::new()
+}
+
 /// A chunk of allocated memory that stores a bunch of values of different types.
 ///
 /// ## Example
 ///
 /// ```rust
-/// use stadium::Stadium;
-///
-/// let mut builder = Stadium::builder();
+/// let mut builder = stadium::builder();
 /// let h_vec = builder.insert(vec![1, 2, 3, 4]);
 /// let h_string = builder.insert(String::from("Hello"));
 /// let h_str = builder.insert("World");
@@ -71,13 +83,11 @@ impl Stadium {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder_1 = Stadium::builder();
+    /// let mut builder_1 = stadium::builder();
     /// let handle_1 = builder_1.insert("I'm a string inserted in the first stadium");
     /// let stadium_1 = builder_1.build();
     ///
-    /// let mut builder_2 = Stadium::builder();
+    /// let mut builder_2 = stadium::builder();
     /// let handle_2 = builder_2.insert("I'm a string inserted in the second stadium");
     /// let stadium_2 = builder_2.build();
     ///
@@ -101,9 +111,7 @@ impl Stadium {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     /// let handle = builder.insert(4);
     /// let mut stadium = builder.build();
     ///
@@ -127,9 +135,7 @@ impl Stadium {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     /// let handle = builder.insert(5);
     /// let mut stadium = builder.build();
     ///
@@ -151,9 +157,7 @@ impl Stadium {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     ///
     /// let h_num = builder.insert(2023);
     /// let h_str = builder.insert("Hello, world");
@@ -187,9 +191,7 @@ impl Stadium {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     ///
     /// let h_num = builder.insert(250);
     /// let h_vec = builder.insert(vec![1, 2, 3]);
@@ -222,9 +224,7 @@ impl Stadium {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     /// let handle = builder.insert(5);
     /// let mut stadium = builder.build();
     ///
@@ -256,9 +256,7 @@ impl Stadium {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     /// let handle = builder.insert(5);
     /// let mut stadium = builder.build();
     ///
@@ -318,22 +316,6 @@ struct ObjectLocation {
 
 /// A structure used to create a `Stadium`. This function can be created using
 /// the `Stadium::builder` function.
-///
-/// ## Example
-///
-/// ```rust
-/// use stadium::Stadium;
-///
-/// let mut builder = Stadium::builder();
-///
-/// let h_str = builder.insert("Hello, world");
-/// let h_vec = builder.insert(vec![2019, 2020, 2021]);
-/// let h_i8 = builder.insert(68i8);
-///
-/// let _stadium = builder.build();
-///
-/// /* profit */
-/// ```
 pub struct Builder {
     id: usize,
     reserved_objects: Vec<ReservedObject>,
@@ -648,9 +630,7 @@ impl<T> ObjectHandle<T> {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     /// let raw_handle = builder.insert("Hello").raw();
     /// ```
     #[inline(always)]
@@ -678,9 +658,7 @@ impl RawObjectHandle {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     /// let handle = builder.insert(5i32);
     /// let stadium = builder.build();
     ///
@@ -712,9 +690,7 @@ impl RawObjectHandle {
     /// ## Example
     ///
     /// ```rust
-    /// use stadium::Stadium;
-    ///
-    /// let mut builder = Stadium::builder();
+    /// let mut builder = stadium::builder();
     /// let raw_handle = builder.insert(5i32).raw();
     ///
     /// // SAFETY: The handle was given by this builder and was created for a `i32`.
