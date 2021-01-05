@@ -8,32 +8,31 @@ use mem::MaybeUninit;
 
 static NEXT_BUILDER_ID: AtomicUsize = AtomicUsize::new(0);
 
-/// A chunk of allocated memory that stores a bunch of values of different types
-/// contiguously in memory.
+/// A chunk of allocated memory that stores a bunch of values of different types.
 ///
 /// ## Example
 ///
 /// ```rust
-/// use localpool::LocalPool;
+/// use stadium::Stadium;
 ///
-/// let mut builder = LocalPool::builder();
+/// let mut builder = Stadium::builder();
 /// let h_vec = builder.insert(vec![1, 2, 3, 4]);
 /// let h_string = builder.insert(String::from("Hello"));
 /// let h_str = builder.insert("World");
 ///
-/// let mut pool = builder.build();
+/// let mut stadium = builder.build();
 ///
 /// pool[h_vec][0] = 2;
-/// assert_eq!(&pool[h_vec][..], &[2, 2, 3, 4]);
+/// assert_eq!(&stadium[h_vec][..], &[2, 2, 3, 4]);
 ///
-/// assert_eq!(pool[h_str], "World");
+/// assert_eq!(stadium[h_str], "World");
 /// ```
 ///
-/// Note that using a `String` or a `Vec` inside of a `LocalPool` defies a bit of its
-/// original purpose (which is storing those different types localy).
-pub struct LocalPool {
-    /// The id of the local pool. This id is unique and prevent the user to use a handle
-    /// from another `LocalPool`.
+/// Note that using a `String` or a `Vec` inside of a `Stadium` defies a bit of its
+/// original purpose (which is storing those different types localy in memory).
+pub struct Stadium {
+    /// The id of the stadium. This id is unique and prevent a user to use a handle
+    /// from another stadium.
     id: usize,
 
     /// A pointer to the owned data.
@@ -44,48 +43,48 @@ pub struct LocalPool {
 
     /// Maps an `index` to the location of an object.
     ///
-    /// SAFETY: All the `ObjectLocation` within this vector must reference objects
-    /// owned by the pool.
+    /// SAFETY: All the `ObjectLocation`s within this vector must reference objects
+    /// owned by the stadium.
     ///
-    /// When a handle is given by a `PoolBuilder`, the `index` and the `T` of that
+    /// When a handle is given by a `Builder`, the `index` and the `T` of that
     /// handle must always match the `ObjectLocation` at the given index in this vector.
     locations: Vec<ObjectLocation>,
 }
 
-impl LocalPool {
-    /// Creates a new `PoolBuilder`.
+impl Stadium {
+    /// Creates a new `Builder`.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let builder = LocalPool::builder();
+    /// let builder = Stadium::builder();
     /// ```
     #[inline(always)]
-    pub fn builder() -> PoolBuilder {
-        PoolBuilder::new()
+    pub fn builder() -> Builder {
+        Builder::new()
     }
 
-    /// Checks if the given `ObjectHandle` can be safely used with this `LocalPool`.
+    /// Checks if the given `ObjectHandle` can be safely used with this `Stadium`.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder_1 = LocalPool::builder();
-    /// let handle_1 = builder_1.insert("I'm a string inserted in the first pool");
-    /// let pool_1 = builder_1.build();
+    /// let mut builder_1 = Stadium::builder();
+    /// let handle_1 = builder_1.insert("I'm a string inserted in the first stadium");
+    /// let stadium_1 = builder_1.build();
     ///
-    /// let mut builder_2 = LocalPool::builder();
-    /// let handle_2 = builder_2.insert("I'm a string inserted in the second pool");
-    /// let pool_2 = builder_2.build();
+    /// let mut builder_2 = Stadium::builder();
+    /// let handle_2 = builder_2.insert("I'm a string inserted in the second stadium");
+    /// let stadium_2 = builder_2.build();
     ///
-    /// assert_eq!(pool_1.is_valid_handle(handle_2), false);
-    /// assert_eq!(pool_1.is_valid_handle(handle_1), true);
-    /// assert_eq!(pool_2.is_valid_handle(handle_2), true);
-    /// assert_eq!(pool_2.is_valid_handle(handle_1), false);
+    /// assert_eq!(stadium_1.is_valid_handle(handle_2), false);
+    /// assert_eq!(stadium_1.is_valid_handle(handle_1), true);
+    /// assert_eq!(stadium_2.is_valid_handle(handle_2), true);
+    /// assert_eq!(stadium_2.is_valid_handle(handle_1), false);
     /// ```
     #[inline(always)]
     pub fn is_valid_handle<T>(&self, handle: ObjectHandle<T>) -> bool {
@@ -93,25 +92,25 @@ impl LocalPool {
     }
 
     /// Replaces the object referenced by the given handle assuming that the handle
-    /// was created for this specific `LocalPool`.
+    /// was created for this specific `Stadium`.
     ///
     /// ## Safety
     ///
-    /// The given handle must've been created for this specific `LocalPool`.
+    /// The given handle must've been created for this specific `Stadium`.
     //
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     /// let handle = builder.insert(4);
-    /// let mut pool = builder.build();
+    /// let mut stadium = builder.build();
     ///
-    /// // SAFETY: The handle was created for this pool.
+    /// // SAFETY: The handle was created for this stadium.
     /// unsafe {
-    ///     assert_eq!(pool.replace_unechecked(handle, 5), 4);
-    ///     assert_eq!(pool.get_unchecked(handle), &4);
+    ///     assert_eq!(stadium.replace_unechecked(handle, 5), 4);
+    ///     assert_eq!(stadium.get_unchecked(handle), &4);
     /// }
     /// ```
     #[inline(always)]
@@ -128,48 +127,48 @@ impl LocalPool {
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     /// let handle = builder.insert(5);
-    /// let mut pool = builder.build();
+    /// let mut stadium = builder.build();
     ///
-    /// assert_eq!(pool.replace(handle, 6), 5);
-    /// assert_eq!(pool.get(handle), &6);
+    /// assert_eq!(stadium.replace(handle, 6), 5);
+    /// assert_eq!(stadium.get(handle), &6);
     /// ```
     #[inline(always)]
     pub fn replace<T>(&mut self, handle: ObjectHandle<T>, val: T) -> T {
         mem::replace(self.get_mut(handle), val)
     }
 
-    /// Gets a reference to a value that is part of the pool.
+    /// Gets a reference to a value that is part of the `Stadium`.
     ///
     /// ## Panics
     ///
     /// This function panics if the given `ObjectHandle` was not created for this
-    /// `LocalPool`.
+    /// `Stadium`.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     ///
     /// let h_num = builder.insert(2023);
     /// let h_str = builder.insert("Hello, world");
     ///
-    /// let pool = builder.build();
+    /// let stadium = builder.build();
     ///
-    /// assert_eq!(pool.get(h_str), &"Hello, world");
-    /// assert_eq!(pool.get(h_num), &2023);
+    /// assert_eq!(stadium.get(h_str), &"Hello, world");
+    /// assert_eq!(stadium.get(h_num), &2023);
     /// ```
     #[inline]
     pub fn get<T>(&self, handle: ObjectHandle<T>) -> &T {
         // SAFETY: If a handle is valid, its index is always in the bounds of `locations`.
         if self.is_valid_handle(handle) {
             unsafe {
-                // SAFETY: The handle was created for this pool.
+                // SAFETY: The handle was created for this stadium.
                 // The object has a location.
                 self.get_unchecked(handle)
             }
@@ -178,34 +177,34 @@ impl LocalPool {
         }
     }
 
-    /// Gets a reference to a value that is part of the pool.
+    /// Gets a reference to a value that is part of the `Stadium`.
     ///
     /// ## Panics
     ///
     /// This function panics if the given `ObjectHandle` was not created for this
-    /// `LocalPool`.
+    /// `Stadium`.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     ///
     /// let h_num = builder.insert(250);
     /// let h_vec = builder.insert(vec![1, 2, 3]);
     ///
-    /// let mut pool = builder.build();
+    /// let mut stadium = builder.build();
     ///
-    /// *pool.get_mut(h_num).unwrap() = 5;
-    /// pool.get_mut(h_vec).unwrap().push(4);
+    /// *stadium.get_mut(h_num).unwrap() = 5;
+    /// stadium.get_mut(h_vec).unwrap().push(4);
     ///
-    /// assert_eq!(pool.get(h_num), &5);
-    /// assert_eq!(&pool.get(h_vec)[..], &[1, 2, 3, 4])
+    /// assert_eq!(stadium.get(h_num), &5);
+    /// assert_eq!(&stadium.get(h_vec)[..], &[1, 2, 3, 4])
     /// ```
     #[inline]
     pub fn get_mut<T>(&mut self, handle: ObjectHandle<T>) -> &mut T {
-        // SAFETY: see `LocalPool::get`
+        // SAFETY: see `Stadium::get`
         if self.is_valid_handle(handle) {
             unsafe { self.get_unchecked_mut(handle) }
         } else {
@@ -213,28 +212,28 @@ impl LocalPool {
         }
     }
 
-    /// Gets a reference to a value that is part of the pool.
+    /// Gets a reference to a value that is part of the `Stadium`.
     ///
     /// ## Safety
     ///
-    /// Providing a handle that wasn't created for this specific `LocalPool` is
+    /// Providing a handle that wasn't created for this specific `Stadium` is
     /// undefined behaviour.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     /// let handle = builder.insert(5);
-    /// let mut pool = builder.build();
+    /// let mut stadium = builder.build();
     ///
-    /// // SAFETY: The handle was provided by the builder of this pool.
-    /// unsafe { assert_eq!(pool.get_unchecked(handle), &5) };
+    /// // SAFETY: The handle was provided by the builder of this stadium.
+    /// unsafe { assert_eq!(stadium.get_unchecked(handle), &5) };
     /// ```
     #[inline(always)]
     pub unsafe fn get_unchecked<T>(&self, handle: ObjectHandle<T>) -> &T {
-        // SAFETY: The caller must ensure that the handle was created for this pool.
+        // SAFETY: The caller must ensure that the handle was created for this stadium.
         // The stored index is always in bounds.
         let location = self.locations.get_unchecked(handle.index);
 
@@ -243,40 +242,40 @@ impl LocalPool {
         //
         // The dereference is valid be cause it is an invariant of the pool
         // that every location of the `locations` vector is valid and part
-        // of the pool.
+        // of the stadium.
         &*location.data.cast()
     }
 
-    /// Gets a reference to a value that is part of the pool.
+    /// Gets a reference to a value that is part of the `Stadium`.
     ///
     /// ## Safety
     ///
-    /// Providing a handle that wasn't created for this specific `LocalPool` is
+    /// Providing a handle that wasn't created for this specific `Stadium` is
     /// undefined behaviour.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     /// let handle = builder.insert(5);
-    /// let mut pool = builder.build();
+    /// let mut stadium = builder.build();
     ///
     /// // SAFETY: The handle was provided by the builder of this pool.
     /// unsafe {
-    ///     *pool.get_unchecked_mut(handle) = 4;
-    ///     assert_eq!(pool.get_unchecked(handle), &4);
+    ///     *stadium.get_unchecked_mut(handle) = 4;
+    ///     assert_eq!(stadium.get_unchecked(handle), &4);
     /// }
     /// ```
     #[inline(always)]
     pub unsafe fn get_unchecked_mut<T>(&mut self, handle: ObjectHandle<T>) -> &mut T {
-        // SAFETY: see `LocalPool::get_unchecked`
+        // SAFETY: see `Stadium::get_unchecked`
         &mut *self.locations.get_unchecked_mut(handle.index).data.cast()
     }
 }
 
-impl Drop for LocalPool {
+impl Drop for Stadium {
     fn drop(&mut self) {
         for location in &self.locations {
             if let Some(drop_fn) = location.meta.drop_fn {
@@ -286,14 +285,14 @@ impl Drop for LocalPool {
         }
 
         // Now that all objects are dropped
-        // We can deallocate the pool
+        // We can deallocate the chunk of memory
 
-        // SAFETY: The pool was allocated with the same allocator and layout.
+        // SAFETY: The chunk was allocated with the same allocator and layout.
         unsafe { dealloc(self.data.as_ptr(), self.layout) };
     }
 }
 
-impl<T> ops::Index<ObjectHandle<T>> for LocalPool {
+impl<T> ops::Index<ObjectHandle<T>> for Stadium {
     type Output = T;
 
     #[inline(always)]
@@ -302,14 +301,14 @@ impl<T> ops::Index<ObjectHandle<T>> for LocalPool {
     }
 }
 
-impl<T> ops::IndexMut<ObjectHandle<T>> for LocalPool {
+impl<T> ops::IndexMut<ObjectHandle<T>> for Stadium {
     #[inline(always)]
     fn index_mut(&mut self, handle: ObjectHandle<T>) -> &mut Self::Output {
         self.get_mut(handle)
     }
 }
 
-/// Locates an object within a `Pool`.
+/// Locates an object within a `Stadium`.
 struct ObjectLocation {
     /// A pointer to the actual object.
     data: *mut u8,
@@ -317,36 +316,36 @@ struct ObjectLocation {
     meta: ObjectMeta,
 }
 
-/// A structure used to create a `LocalPool`. This function can be created using
-/// the `LocalPool::builder` function.
+/// A structure used to create a `Stadium`. This function can be created using
+/// the `Stadium::builder` function.
 ///
 /// ## Example
 ///
 /// ```rust
-/// use localpool::LocalPool;
+/// use stadium::Stadium;
 ///
-/// let mut builder = LocalPool::builder();
+/// let mut builder = Stadium::builder();
 ///
 /// let h_str = builder.insert("Hello, world");
 /// let h_vec = builder.insert(vec![2019, 2020, 2021]);
 /// let h_i8 = builder.insert(68i8);
 ///
-/// let pool = builder.build();
+/// let _stadium = builder.build();
 ///
 /// /* profit */
 /// ```
-pub struct PoolBuilder {
+pub struct Builder {
     id: usize,
     reserved_objects: Vec<ReservedObject>,
 }
 
-impl PoolBuilder {
-    /// Creates a new instance of `PoolBuilder`.
+impl Builder {
+    /// Creates a new instance of `Builder`.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// let builder = localpool::PoolBuilder::new();
+    /// let builder = stadium::Builder::new();
     /// // That it! Now you have your own builder.
     /// ```
     #[inline(always)]
@@ -387,14 +386,14 @@ impl PoolBuilder {
         RawObjectHandle { index }
     }
 
-    /// Builds a new `LocalPool`.
+    /// Builds a new `Stadium`.
     ///
     /// ## Panics
     ///
     /// This function can panics if one of the following events occure:
     ///  * The builder is empty
     ///  * The function fails to allocate for the pool
-    pub fn build(self) -> LocalPool {
+    pub fn build(self) -> Stadium {
         let objects = self.reserved_objects;
         let id = self.id;
 
@@ -476,7 +475,7 @@ impl PoolBuilder {
 
         // Now the pool is properly initialized.
 
-        LocalPool {
+        Stadium {
             id,
             data: ptr,
             layout,
@@ -485,9 +484,9 @@ impl PoolBuilder {
     }
 }
 
-impl From<PoolBuilder> for LocalPool {
+impl From<Builder> for Stadium {
     #[inline(always)]
-    fn from(builder: PoolBuilder) -> Self {
+    fn from(builder: Builder) -> Self {
         builder.build()
     }
 }
@@ -617,8 +616,8 @@ impl Drop for ReservedObject {
     }
 }
 
-/// A safe handle to a specific object stored in a specific `LocalPool`. This handle can
-/// be optained from the `PoolBuilder::insert` function.
+/// A safe handle to a specific object stored in a specific `Stadium`. This handle can
+/// be optained from the `Builder::insert` function.
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub struct ObjectHandle<T> {
     /// The id of the pool this handle exist for.
@@ -649,9 +648,9 @@ impl<T> ObjectHandle<T> {
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     /// let raw_handle = builder.insert("Hello").raw();
     /// ```
     #[inline(always)]
@@ -661,7 +660,7 @@ impl<T> ObjectHandle<T> {
 }
 
 /// A handle to a `T` that does not own a `T`. This handle dos not remember
-/// what pool created it.
+/// what stadium created it.
 pub struct RawObjectHandle {
     /// The index of the location of the object referenced by this handle.
     index: usize,
@@ -674,30 +673,30 @@ impl RawObjectHandle {
     ///
     ///  * The generic type parameter `T` must be the same as the original `ObjectHandle`
     /// that was used to produce this `RawObjectHandle`.
-    ///  * The given `LocalPool` must be the one associated with the original handle.
+    ///  * The given `Stadium` must be the one associated with the original handle.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     /// let handle = builder.insert(5i32);
-    /// let pool = builder.build();
+    /// let stadium = builder.build();
     ///
     /// let raw_handle = handle.raw();
     ///
     /// // SAFETY: The handle was given by the builder that created the pool and was
     /// // created for a `i32`.
-    /// let handle = unsafe { raw_handle.trust::<i32>(&pool) };
+    /// let handle = unsafe { raw_handle.trust::<i32>(&stadium) };
     ///
-    /// assert_eq!(pool[handle], 5);
+    /// assert_eq!(stadium[handle], 5);
     /// ```
     #[inline(always)]
-    pub unsafe fn trust<T>(self, pool: &LocalPool) -> ObjectHandle<T> {
+    pub unsafe fn trust<T>(self, stadium: &Stadium) -> ObjectHandle<T> {
         ObjectHandle {
             index: self.index,
-            id: pool.id,
+            id: stadium.id,
             _marker: PhantomData,
         }
     }
@@ -708,24 +707,24 @@ impl RawObjectHandle {
     ///
     ///  * The generic type parameter `T` must be the same as the original `ObjectHandle`
     /// that was used to produce this `RawObjectHandle`.
-    ///  * The given `PoolBuilder` must be the one associated with the original handle.
+    ///  * The given `Builder` must be the one associated with the original handle.
     ///
     /// ## Example
     ///
     /// ```rust
-    /// use localpool::LocalPool;
+    /// use stadium::Stadium;
     ///
-    /// let mut builder = LocalPool::builder();
+    /// let mut builder = Stadium::builder();
     /// let raw_handle = builder.insert(5i32).raw();
     ///
     /// // SAFETY: The handle was given by this builder and was created for a `i32`.
     /// let handle = unsafe { raw_handle.trust_with_builder::<i32>(&builder) };
     ///
-    /// let pool = builder.build();
-    /// assert_eq!(pool[handle], 5);
+    /// let stadium = builder.build();
+    /// assert_eq!(stadium[handle], 5);
     /// ```
     #[inline(always)]
-    pub unsafe fn trust_with_builder<T>(self, builder: &PoolBuilder) -> ObjectHandle<T> {
+    pub unsafe fn trust_with_builder<T>(self, builder: &Builder) -> ObjectHandle<T> {
         ObjectHandle {
             index: self.index,
             id: builder.id,
