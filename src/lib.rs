@@ -105,6 +105,7 @@ impl LocalPool {
     ///
     /// `false` is returned if the handle was not created for this specific
     /// `LocalPool`.
+    #[inline(always)]
     pub fn has_object_at<T>(&self, handle: ObjectHandle<T>) -> bool {
         unsafe {
             // SAFETY: handles always hold indexes that are in bounds.
@@ -125,7 +126,7 @@ impl LocalPool {
     /// assert_eq!(pool.remove(handle), Some(5));
     /// assert_eq!(pool.remove(handle), None);
     /// ```
-    #[inline(always)]
+    #[inline]
     pub fn take<T>(&mut self, handle: ObjectHandle<T>) -> Option<T> {
         if self.has_object_at(handle) {
             // SAFETY: We just checked if the handle was referecing
@@ -174,6 +175,24 @@ impl LocalPool {
         location.data.as_ptr().cast::<T>().read()
     }
 
+    /// Replaces the object referenced by the given handle assuming that the handle is both
+    /// valid and references an initialized `T`.
+    ///
+    /// ## Safety
+    ///
+    /// The given handle must reference an initialize `T` within this specific `LocalPool`.
+    #[inline(always)]
+    pub unsafe fn replace_unchecked<T>(&mut self, handle: ObjectHandle<T>, val: T) -> T {
+        mem::replace(self.get_unchecked_mut(handle), val)
+    }
+
+    /// Replaces the object referenced by the given handle with the given value.
+    #[inline]
+    pub fn replace<T>(&mut self, handle: ObjectHandle<T>, val: T) -> Option<T> {
+        self.get_mut(handle)
+            .map(|reference| mem::replace(reference, val))
+    }
+
     /// Gets a reference to a value that is part of the pool.
     ///
     /// ## Panics
@@ -196,6 +215,7 @@ impl LocalPool {
     /// assert_eq!(pool.get(h_str), Some(&"Hello, world"));
     /// assert_eq!(pool.get(h_num), Some(&2023));
     /// ```
+    #[inline]
     pub fn get<T>(&self, handle: ObjectHandle<T>) -> Option<&T> {
         // SAFETY: If a handle is valid, its index is always in the bounds of `locations`.
         if self.has_object_at(handle) {
@@ -234,6 +254,7 @@ impl LocalPool {
     /// assert_eq!(pool.get(h_num), Some(&5));
     /// assert_eq!(&pool.get(h_vec).unwrap()[..], &[1, 2, 3, 4])
     /// ```
+    #[inline]
     pub fn get_mut<T>(&mut self, handle: ObjectHandle<T>) -> Option<&mut T> {
         // SAFETY: see `LocalPool::get`
         if self.has_object_at(handle) {
@@ -262,6 +283,7 @@ impl LocalPool {
     /// // SAFETY: The handle was provided by the builder of this pool.
     /// unsafe { assert_eq!(pool.get_unchecked(handle), &5) };
     /// ```
+    #[inline(always)]
     pub unsafe fn get_unchecked<T>(&self, handle: ObjectHandle<T>) -> &T {
         // SAFETY: The caller must ensure that the handle was created for this pool.
         // The stored index is always in bounds.
@@ -299,6 +321,7 @@ impl LocalPool {
     ///     assert_eq!(pool.get_unchecked(handle), &4);
     /// }
     /// ```
+    #[inline(always)]
     pub unsafe fn get_unchecked_mut<T>(&mut self, handle: ObjectHandle<T>) -> &mut T {
         // SAFETY: see `LocalPool::get_unchecked`
         &mut *self._get_location(handle).data.as_ptr().cast()
