@@ -46,10 +46,7 @@ pub struct LocalPool {
     ///
     /// When a handle is given by a `PoolBuilder`, the `index` and the `T` of that
     /// handle must always match the `ObjectLocation` at the given index in this vector.
-    ///
-    /// If there is *Some* location, this mean there is *some* object initialized.
-    /// If there is *None* location, this mean there is no object.
-    locations: Vec<Option<ObjectLocation>>,
+    locations: Vec<ObjectLocation>,
 }
 
 impl LocalPool {
@@ -101,80 +98,6 @@ impl LocalPool {
         mem::transmute(self.locations.get_unchecked(handle.index))
     }
 
-    /// Checks if the given handle references an object in the this `LocalPool`.
-    ///
-    /// `false` is returned if the handle was not created for this specific
-    /// `LocalPool`.
-    #[inline(always)]
-    pub fn has_object_at<T>(&self, handle: ObjectHandle<T>) -> bool {
-        unsafe {
-            // SAFETY: handles always hold indexes that are in bounds.
-            self.is_valid_handle(handle) && self.locations.get_unchecked(handle.index).is_some()
-        }
-    }
-
-    /// Removes an object from the pool and returns it.
-    ///
-    /// ## Example
-    ///
-    /// ```rust
-    /// use localpool::LocalPool:
-    /// let mut builder = LocalPool::builder();
-    /// let handle = builder.insert(5);
-    /// let mut pool = builder.build();
-    ///
-    /// assert_eq!(pool.remove(handle), Some(5));
-    /// assert_eq!(pool.remove(handle), None);
-    /// ```
-    #[inline]
-    pub fn take<T>(&mut self, handle: ObjectHandle<T>) -> Option<T> {
-        if self.has_object_at(handle) {
-            // SAFETY: We just checked if the handle was referecing
-            // a valid value.
-            unsafe { Some(self.take_unchecked(handle)) }
-        } else {
-            None
-        }
-    }
-
-    /// Removes an object from the pool and returns it without checking for the
-    /// validity of `handle`.
-    ///
-    /// ## Safety
-    ///
-    /// The given handle must have been created for this specific `LocalPool` and
-    /// must reference initialized data.
-    ///
-    /// ## Example
-    ///
-    /// ```rust
-    /// use localpool::LocalPool:
-    /// let mut builder = LocalPool::builder();
-    /// let handle = builder.insert(6);
-    /// let mut pool = builder.build();
-    ///
-    /// // SAFETY: The handle was created for this specific pool AND the handle
-    /// // references an existing value.
-    /// unsafe { assert_eq!(pool.remove_unchecked(handle), 5) };
-    /// ```
-    pub unsafe fn take_unchecked<T>(&mut self, handle: ObjectHandle<T>) -> T {
-        let mut location = None;
-
-        // SAFETY: The caller must ensure that the handle is valid: valid handles
-        // always have in-bounds indexes.
-        let location_to_remove = self.locations.get_unchecked_mut(handle.index);
-
-        mem::swap(&mut location, location_to_remove);
-
-        // SAFETY:
-        // 1. ObjectLocation and Option<ObjectLocation> have the same memory layout.
-        // 2. The caller ensures that the location exists here.
-        let location: ObjectLocation = mem::transmute(location);
-
-        // The cast is valid because the handle "remembers" what type it references.
-        location.data.as_ptr().cast::<T>().read()
-    }
-
     /// Replaces the object referenced by the given handle assuming that the handle is both
     /// valid and references an initialized `T`.
     ///
@@ -218,7 +141,7 @@ impl LocalPool {
     #[inline]
     pub fn get<T>(&self, handle: ObjectHandle<T>) -> Option<&T> {
         // SAFETY: If a handle is valid, its index is always in the bounds of `locations`.
-        if self.has_object_at(handle) {
+        if self.is_valid_handle(handle) {
             unsafe {
                 // SAFETY: The handle was created for this pool.
                 // The object has a location.
@@ -257,7 +180,7 @@ impl LocalPool {
     #[inline]
     pub fn get_mut<T>(&mut self, handle: ObjectHandle<T>) -> Option<&mut T> {
         // SAFETY: see `LocalPool::get`
-        if self.has_object_at(handle) {
+        if self.is_valid_handle(handle) {
             unsafe { Some(self.get_unchecked_mut(handle)) }
         } else {
             None
@@ -296,7 +219,7 @@ impl LocalPool {
         // The dereference is valid be cause it is an invariant of the pool
         // that every location of the `locations` vector is valid and part
         // of the pool.
-        &*location.data.as_ptr().cast()
+        &*location.data.cast()
     }
 
     /// Gets a reference to a value that is part of the pool.
@@ -324,18 +247,16 @@ impl LocalPool {
     #[inline(always)]
     pub unsafe fn get_unchecked_mut<T>(&mut self, handle: ObjectHandle<T>) -> &mut T {
         // SAFETY: see `LocalPool::get_unchecked`
-        &mut *self._get_location(handle).data.as_ptr().cast()
+        &mut *self._get_location(handle).data.cast()
     }
 }
 
 impl Drop for LocalPool {
     fn drop(&mut self) {
         for location in &self.locations {
-            if let Some(location) = location {
-                if let Some(drop_fn) = location.meta.drop_fn {
-                    // SAFETY: The data in the pool is always initialized.
-                    unsafe { drop_fn(location.data.as_ptr()) };
-                }
+            if let Some(drop_fn) = location.meta.drop_fn {
+                // SAFETY: The data in the pool is always initialized.
+                unsafe { drop_fn(location.data) };
             }
         }
 
@@ -464,7 +385,7 @@ impl PoolBuilder {
 
         // We need this structure to map the handles that the builder has given
         // to actual objects within the pool.
-        let mut locations: Vec<Option<ObjectLocation>> = Vec::with_capacity(object_count);
+        let mut locations: Vec<ObjectLocation> = Vec::with_capacity(object_count);
 
         let mut cursor = ptr.as_ptr();
         for (original_index, obj) in sorted_vector.into_iter().rev() {
@@ -495,11 +416,7 @@ impl PoolBuilder {
                 locations
                     .as_mut_ptr()
                     .add(original_index)
-                    .write(Some(ObjectLocation {
-                        meta,
-                        data: NonNull::new_unchecked(cursor),
-                        _marker: PhantomData,
-                    }));
+                    .write(ObjectLocation { meta, data: cursor });
             }
 
             // SAFETY: We own the data. A safety check will be done after the loop.
@@ -758,13 +675,9 @@ impl RawObjectHandle {
 /// Locates an object within a `Pool`.
 struct ObjectLocation {
     /// A pointer to the actual object.
-    // NonNull for .
-    data: NonNull<u8>,
+    data: *mut u8,
     /// Information about the object.
     meta: ObjectMeta,
-
-    // for invariance
-    _marker: PhantomData<*mut u8>,
 }
 
 #[cfg(test)]
