@@ -309,6 +309,14 @@ impl<T> ops::IndexMut<ObjectHandle<T>> for LocalPool {
     }
 }
 
+/// Locates an object within a `Pool`.
+struct ObjectLocation {
+    /// A pointer to the actual object.
+    data: *mut u8,
+    /// Information about the object.
+    meta: ObjectMeta,
+}
+
 /// A structure used to create a `LocalPool`. This function can be created using
 /// the `LocalPool::builder` function.
 ///
@@ -724,12 +732,4 @@ impl RawObjectHandle {
             _marker: PhantomData,
         }
     }
-}
-
-/// Locates an object within a `Pool`.
-struct ObjectLocation {
-    /// A pointer to the actual object.
-    data: *mut u8,
-    /// Information about the object.
-    meta: ObjectMeta,
 }
