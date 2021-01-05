@@ -95,17 +95,8 @@ impl LocalPool {
     pub fn get<T>(&self, handle: ObjectHandle<T>) -> &T {
         if self.is_valid_handle(handle) {
             unsafe {
-                // SAFETY: The handle was created for this pool. The stored index is
-                // always in bounds.
-                let location = self.locations.get_unchecked(handle.index);
-
-                // SAFETY: This cast is valid because the object handle "remembers" the
-                // type of the object at this location.
-                //
-                // The dereference is valid be cause it is an invariant of the pool
-                // that every location of the `locations` vector is valid and part
-                // of the pool.
-                &*location.data.as_ptr().cast()
+                // SAFETY: The handle was created for this pool.
+                self.get_unchecked(handle)
             }
         } else {
             panic!("This handle was not created for this `LocalPool`");
@@ -140,13 +131,73 @@ impl LocalPool {
     pub fn get_mut<T>(&mut self, handle: ObjectHandle<T>) -> &mut T {
         if self.is_valid_handle(handle) {
             unsafe {
-                // SAFETY: see `LocalPool::get`
-                let location = self.locations.get_unchecked(handle.index);
-                &mut *location.data.as_ptr().cast()
+                // SAFETY: The handle was created for this pool.
+                self.get_unchecked_mut(handle)
             }
         } else {
             panic!("This handle was not created for this `LocalPool`");
         }
+    }
+
+    /// Gets a reference to a value that is part of the pool.
+    ///
+    /// ## Safety
+    ///
+    /// Providing a handle that wasn't created for this specific `LocalPool` is
+    /// undefined behaviour.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use localpool::LocalPool;
+    ///
+    /// let mut builder = LocalPool::builder();
+    /// let handle = builder.insert(5);
+    /// let mut pool = builder.build();
+    ///
+    /// // SAFETY: The handle was provided by the builder of this pool.
+    /// unsafe { assert_eq!(pool.get_unchecked(handle), 5) };
+    /// ```
+    pub unsafe fn get_unchecked<T>(&self, handle: ObjectHandle<T>) -> &T {
+        // SAFETY: The caller must ensure that the handle was created for this pool.
+        // The stored index is always in bounds.
+        let location = self.locations.get_unchecked(handle.index);
+
+        // SAFETY: This cast is valid because the object handle "remembers" the
+        // type of the object at this location.
+        //
+        // The dereference is valid be cause it is an invariant of the pool
+        // that every location of the `locations` vector is valid and part
+        // of the pool.
+        &*location.data.as_ptr().cast()
+    }
+
+    /// Gets a reference to a value that is part of the pool.
+    ///
+    /// ## Safety
+    ///
+    /// Providing a handle that wasn't created for this specific `LocalPool` is
+    /// undefined behaviour.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use localpool::LocalPool;
+    ///
+    /// let mut builder = LocalPool::builder();
+    /// let handle = builder.insert(5);
+    /// let mut pool = builder.build();
+    ///
+    /// // SAFETY: The handle was provided by the builder of this pool.
+    /// unsafe {
+    ///     *pool.get_unchecked_mut(handle) = 4;
+    ///     assert_eq!(pool.get_unchecked(handle), 4);
+    /// }
+    /// ```
+    pub unsafe fn get_unchecked_mut<T>(&mut self, handle: ObjectHandle<T>) -> &mut T {
+        // SAFETY: see `LocalPool::get_unchecked`
+        let location = self.locations.get_unchecked(handle.index);
+        &mut *location.data.as_ptr().cast()
     }
 }
 
