@@ -1,5 +1,5 @@
 #[test]
-#[should_panic(expected = "")]
+#[should_panic(expected = "You cannot create a pool with no elements in it")]
 fn panic_on_build_with_no_objects() {
     stadium::builder().build();
 }
@@ -44,14 +44,14 @@ fn build_with_300_objects() {
 }
 
 #[test]
-#[should_panic(expected = "")]
+#[should_panic(expected = "You cannot put a zero-sized type into a `Stadium`")]
 fn panic_on_zero_sized_type_insert() {
     let mut b = stadium::builder();
     b.insert(());
 }
 
 #[test]
-#[should_panic(expected = "")]
+#[should_panic(expected = "You cannot put a zero-sized type into a `Stadium`")]
 fn panic_on_zero_sized_type_insert_raw() {
     let meta = stadium::ObjectMeta::of::<()>();
     let mut b = stadium::builder();
@@ -92,4 +92,37 @@ fn get_mut_values_from_stadium() {
     assert_eq!(s.get(h), &[0, 1, 2][..]);
     s.get_mut(h).push(3);
     assert_eq!(s.get(h), &[0, 1, 2, 3][..]);
+}
+
+#[test]
+#[should_panic(expected = "The given handle was not created for this pool")]
+fn get_panics_on_invalid_handle() {
+    let mut b_1 = stadium::builder();
+    let mut b_2 = stadium::builder();
+    b_1.insert(0u8);
+    let h_2 = b_2.insert(0u8);
+    let s = b_1.build();
+    s.get(h_2);
+}
+
+#[test]
+#[should_panic(expected = "The given handle was not created for this pool")]
+fn get_mut_panics_on_invalid_handle() {
+    let mut b_1 = stadium::builder();
+    let mut b_2 = stadium::builder();
+    b_1.insert(0u8);
+    let h_2 = b_2.insert(0u8);
+    let mut s = b_1.build();
+    s.get_mut(h_2);
+}
+
+#[test]
+#[should_panic(expected = "The given handle was not created for this pool")]
+fn replace_panics_on_invalid_handle() {
+    let mut b_1 = stadium::builder();
+    let mut b_2 = stadium::builder();
+    b_1.insert(0u8);
+    let h_2 = b_2.insert(0u8);
+    let mut s = b_1.build();
+    s.replace(h_2, 1);
 }

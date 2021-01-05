@@ -335,7 +335,7 @@ impl Builder {
         Self {
             // TODO: Figure out what Ordering is the best for this case because we don't
             // really care about the order in which those operations are being computed
-            id: NEXT_BUILDER_ID.fetch_add(1, Ordering::SeqCst),
+            id: NEXT_BUILDER_ID.fetch_add(1, Ordering::Relaxed),
             reserved_objects: Vec::new(),
         }
     }
@@ -549,7 +549,7 @@ impl ReservedObject {
     /// This function panics if `meta` describes a zero-sized type.
     fn uninit(meta: ObjectMeta) -> Self {
         if meta.layout.size() == 0 {
-            panic!("You cannot put a zero-sized type into a `LocalPool`");
+            panic!("You cannot put a zero-sized type into a `Stadium`");
         }
 
         let ptr = unsafe {
