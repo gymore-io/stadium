@@ -65,6 +65,25 @@ impl LocalPool {
     }
 
     /// Checks if the given `ObjectHandle` can be safely used with this `LocalPool`.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use localpool::LocalPool;
+    ///
+    /// let builder_1 = LocalPool::builder();
+    /// let handle_1 = builder_1.insert("I'm a string inserted in the first pool");
+    /// let pool_1 = builder_1.build();
+    ///
+    /// let builder_2 = LocalPool::builder();
+    /// let handle_2 = builder_2.insert("I'm a string inserted in the second pool");
+    /// let pool_2 = builder_2.build();
+    ///
+    /// assert_eq!(pool_1.is_valid_handle(handle_2), false);
+    /// assert_eq!(pool_1.is_valid_handle(handle_1), true);
+    /// assert_eq!(pool_2.is_valid_handle(handle_2), true);
+    /// assert_eq!(pool_2.is_valid_handle(handle_1), false);
+    /// ```
     #[inline(always)]
     pub fn is_valid_handle<T>(&self, handle: ObjectHandle<T>) -> bool {
         handle.id == self.id
@@ -418,6 +437,7 @@ struct ObjectMeta {
 }
 
 impl ObjectMeta {
+    /// Computes the `ObjectMeta` of the type `T`.
     pub fn of<T>() -> Self {
         Self {
             layout: Layout::new::<T>(),
@@ -511,8 +531,12 @@ impl Drop for ReservedObject {
 /// be optained from the `PoolBuilder::insert` function.
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub struct ObjectHandle<T> {
+    /// The id of the pool this handle exist for.
     id: usize,
+    /// The index of the location of the object referenced by this handle.
     index: usize,
+
+    // Invariant T owned by this handle.
     _marker: PhantomData<*mut T>,
 }
 
