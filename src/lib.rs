@@ -553,6 +553,97 @@ impl<T> Clone for ObjectHandle<T> {
 
 impl<T> Copy for ObjectHandle<T> {}
 
+impl<T> ObjectHandle<T> {
+    /// Converts this `ObjectHandle` into a `RawObjectHandle`.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use localpool::LocalPool;
+    ///
+    /// let mut builder = LocalPool::builder();
+    /// let raw_handle = builder.insert("Hello").raw();
+    /// ```
+    #[inline(always)]
+    pub fn raw(self) -> RawObjectHandle {
+        RawObjectHandle { index: self.index }
+    }
+}
+
+/// A handle to a `T` that does not own a `T`. This handle dos not remember
+/// what pool created it.
+pub struct RawObjectHandle {
+    /// The index of the location of the object referenced by this handle.
+    index: usize,
+}
+
+impl RawObjectHandle {
+    /// Recreate an `ObjectHandle` from this `RawObjectHandle`.
+    ///
+    /// ## Safety
+    ///
+    ///  * The generic type parameter `T` must be the same as the original `ObjectHandle`
+    /// that was used to produce this `RawObjectHandle`.
+    ///  * The given `LocalPool` must be the one associated with the original handle.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use localpool::LocalPool;
+    ///
+    /// let mut builder = LocalPool::builder();
+    /// let handle = builder.insert(5i32);
+    /// let pool = builder.build();
+    ///
+    /// let raw_handle = handle.raw();
+    ///
+    /// // SAFETY: The handle was given by the builder that created the pool and was
+    /// // created for a `i32`.
+    /// let handle = unsafe { raw_handle.trust::<i32>(&pool) };
+    ///
+    /// assert_eq!(pool[handle], 5);
+    /// ```
+    #[inline(always)]
+    pub unsafe fn trust<T>(self, pool: &LocalPool) -> ObjectHandle<T> {
+        ObjectHandle {
+            index: self.index,
+            id: pool.id,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Recreate an `ObjectHandle` from this `RawObjectHandle`.
+    ///
+    /// ## Safety
+    ///
+    ///  * The generic type parameter `T` must be the same as the original `ObjectHandle`
+    /// that was used to produce this `RawObjectHandle`.
+    ///  * The given `PoolBuilder` must be the one associated with the original handle.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// use localpool::LocalPool;
+    ///
+    /// let mut builder = LocalPool::builder();
+    /// let raw_handle = builder.insert(5i32).raw();
+    ///
+    /// // SAFETY: The handle was given by this builder and was created for a `i32`.
+    /// let handle = unsafe { raw_handle.trust_from_builder::<i32>(&builder) };
+    ///
+    /// let pool = builder.build();
+    /// assert_eq!(pool[handle], 5);
+    /// ```
+    #[inline(always)]
+    pub unsafe fn trust_with_builder<T>(self, builder: &PoolBuilder) -> ObjectHandle<T> {
+        ObjectHandle {
+            index: self.index,
+            id: builder.id,
+            _marker: PhantomData,
+        }
+    }
+}
+
 /// Locates an object within a `Pool`.
 struct ObjectLocation {
     /// A pointer to the actual object.
