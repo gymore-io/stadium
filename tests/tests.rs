@@ -1,3 +1,18 @@
+use std::cell::Cell;
+use std::mem::ManuallyDrop;
+use std::rc::Rc;
+
+/// A simple structure that adds one to its inner counter when it gets dropped.
+pub struct DropCounter(ManuallyDrop<Rc<Cell<usize>>>);
+impl Drop for DropCounter {
+    fn drop(&mut self) {
+        self.0.set(self.0.get() + 1);
+
+        unsafe { ManuallyDrop::drop(&mut self.0) };
+        // must not use the arc after this point
+    }
+}
+
 #[test]
 #[should_panic(expected = "You cannot create a stadium with no elements in it")]
 fn panic_on_build_with_no_objects() {
@@ -164,4 +179,36 @@ fn swap_values() {
 
     assert_eq!(s[a], 2);
     assert_eq!(s[b], 1);
+}
+
+#[test]
+fn the_builder_properly_drops_everything() {
+    let drop_count = Rc::new(Cell::new(0));
+
+    {
+        let mut b = stadium::builder();
+
+        for _ in 0..100 {
+            b.insert(DropCounter(ManuallyDrop::new(Rc::clone(&drop_count))));
+        }
+    }
+
+    assert_eq!(drop_count.get(), 100);
+}
+
+#[test]
+fn the_stadium_properly_drops_everything() {
+    let drop_count = Rc::new(Cell::new(0));
+
+    {
+        let mut b = stadium::builder();
+
+        for _ in 0..100 {
+            b.insert(DropCounter(ManuallyDrop::new(Rc::clone(&drop_count))));
+        }
+
+        let _ = b.build();
+    }
+
+    assert_eq!(drop_count.get(), 100);
 }
