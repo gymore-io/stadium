@@ -2,7 +2,7 @@ use std::alloc::{alloc, dealloc, Layout};
 use std::marker::PhantomData;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::{mem, ops};
+use std::{fmt, mem, ops};
 
 use mem::MaybeUninit;
 
@@ -91,13 +91,13 @@ impl Stadium {
     /// let handle_2 = builder_2.insert("I'm a string inserted in the second stadium");
     /// let stadium_2 = builder_2.build();
     ///
-    /// assert_eq!(stadium_1.is_valid_handle(handle_2), false);
-    /// assert_eq!(stadium_1.is_valid_handle(handle_1), true);
-    /// assert_eq!(stadium_2.is_valid_handle(handle_2), true);
-    /// assert_eq!(stadium_2.is_valid_handle(handle_1), false);
+    /// assert_eq!(stadium_1.is_associated_with(handle_2), false);
+    /// assert_eq!(stadium_1.is_associated_with(handle_1), true);
+    /// assert_eq!(stadium_2.is_associated_with(handle_2), true);
+    /// assert_eq!(stadium_2.is_associated_with(handle_1), false);
     /// ```
     #[inline(always)]
-    pub fn is_valid_handle<T>(&self, handle: Handle<T>) -> bool {
+    pub fn is_associated_with<T>(&self, handle: Handle<T>) -> bool {
         handle.id == self.id
     }
 
@@ -168,15 +168,16 @@ impl Stadium {
     /// ```
     #[inline]
     pub fn get<T>(&self, handle: Handle<T>) -> &T {
+        assert!(
+            self.is_associated_with(handle),
+            "The given handle was not created for this stadium"
+        );
+
         // SAFETY: If a handle is valid, its index is always in the bounds of `locations`.
-        if self.is_valid_handle(handle) {
-            unsafe {
-                // SAFETY: The handle was created for this stadium.
-                // The object has a location.
-                self.get_unchecked(handle)
-            }
-        } else {
-            panic!("The given handle was not created for this stadium");
+        unsafe {
+            // SAFETY: The handle was created for this stadium.
+            // The object has a location.
+            self.get_unchecked(handle)
         }
     }
 
@@ -204,12 +205,13 @@ impl Stadium {
     /// ```
     #[inline]
     pub fn get_mut<T>(&mut self, handle: Handle<T>) -> &mut T {
+        assert!(
+            self.is_associated_with(handle),
+            "The given handle was not created for this stadium"
+        );
+
         // SAFETY: see `Stadium::get`
-        if self.is_valid_handle(handle) {
-            unsafe { self.get_unchecked_mut(handle) }
-        } else {
-            panic!("The given handle was not created for this stadium");
-        }
+        unsafe { self.get_unchecked_mut(handle) }
     }
 
     /// Gets a reference to a value that is part of the `Stadium`.
@@ -319,6 +321,76 @@ impl Stadium {
         // `Stadium`.
         // The raw handle was created from a `Handle<T>`.
         self.get_ptr_mut_raw(handle.raw()).cast()
+    }
+
+    /// Swaps the values referenced by `a` and `b` within this `Stadium`.
+    ///
+    /// ## Safety
+    ///
+    /// * This given handles `a` and `b` must both be associated with this `Stadium`.
+    /// * `a` must be different from `b`
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// let mut builder = stadium::builder();
+    /// let a = builder.insert("Foo");
+    /// let b = builder.insert("Bar");
+    /// let mut s = builder.build();
+    ///
+    /// assert_eq!(s[a], "Foo");
+    /// assert_eq!(s[b], "Bar");
+    ///
+    /// // SAFETY: Those two handles are associated with `s`.
+    /// unsafe { s.swap_unchecked(a, b); }
+    ///
+    /// assert_eq!(s[a], "Bar");
+    /// assert_eq!(s[b], "Foo");
+    /// ```
+    pub unsafe fn swap_unchecked<T>(&mut self, a: Handle<T>, b: Handle<T>) {
+        // SAFETY: This function was called using a mutable reference to `self`
+        // which mean no one else has a reference to any of those two objects.
+        //
+        // The caller must ensure that the given handle is actually valid AND
+        // distinct.
+        let a = &mut *self.get_ptr_mut(a);
+        let b = &mut *self.get_ptr_mut(b);
+        mem::swap(a, b);
+    }
+
+    /// Swaps the values referenced by `a` and `b` within this `Stadium`.
+    ///
+    /// ## Example
+    ///
+    /// ```rust
+    /// let mut builder = stadium::builder();
+    /// let a = builder.insert("Foo");
+    /// let b = builder.insert("Bar");
+    /// let mut s = builder.build();
+    ///
+    /// assert_eq!(s[a], "Foo");
+    /// assert_eq!(s[b], "Bar");
+    ///
+    /// s.swap(a, b);
+    ///
+    /// assert_eq!(s[a], "Bar");
+    /// assert_eq!(s[b], "Foo");
+    /// ```
+    pub fn swap<T>(&mut self, a: Handle<T>, b: Handle<T>) {
+        if a != b {
+            assert!(
+                self.is_associated_with(a),
+                "`a` is not associated with this `Stadium`"
+            );
+            assert!(
+                self.is_associated_with(b),
+                "`b` is not associated with this `Stadium`"
+            );
+
+            // SAFETY: a != b and those handles are both
+            // associated with this `Stadium`.
+            unsafe { self.swap_unchecked(a, b) };
+        }
     }
 }
 
@@ -647,7 +719,6 @@ impl Drop for Reserved {
 
 /// A safe handle to a specific object stored in a specific `Stadium`. This handle can
 /// be optained from the `Builder::insert` function.
-#[derive(PartialEq, Eq, Hash, Debug)]
 pub struct Handle<T> {
     /// The id of the stadium this handle exist for.
     id: usize,
@@ -670,6 +741,20 @@ impl<T> Clone for Handle<T> {
 }
 
 impl<T> Copy for Handle<T> {}
+
+impl<T> fmt::Debug for Handle<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_tuple("Handle").field(&self.index).finish()
+    }
+}
+
+impl<T> PartialEq for Handle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.index == other.index
+    }
+}
+
+impl<T> Eq for Handle<T> {}
 
 impl<T> Handle<T> {
     /// Converts this `Handle` into a `RawHandle`.

@@ -59,7 +59,7 @@ fn panic_on_zero_sized_type_insert_raw() {
 }
 
 #[test]
-fn stadium_is_valid_handle() {
+fn handle_is_associated_with_stadium() {
     let mut b_1 = stadium::builder();
     let mut b_2 = stadium::builder();
     let h_1 = b_1.insert(0u8);
@@ -67,10 +67,10 @@ fn stadium_is_valid_handle() {
     let s_1 = b_1.build();
     let s_2 = b_2.build();
 
-    assert_eq!(s_1.is_valid_handle(h_1), true);
-    assert_eq!(s_1.is_valid_handle(h_2), false);
-    assert_eq!(s_2.is_valid_handle(h_1), false);
-    assert_eq!(s_2.is_valid_handle(h_2), true);
+    assert_eq!(s_1.is_associated_with(h_1), true);
+    assert_eq!(s_1.is_associated_with(h_2), false);
+    assert_eq!(s_2.is_associated_with(h_1), false);
+    assert_eq!(s_2.is_associated_with(h_2), true);
 }
 
 #[test]
@@ -125,4 +125,43 @@ fn replace_panics_on_invalid_handle() {
     let h_2 = b_2.insert(0u8);
     let mut s = b_1.build();
     s.replace(h_2, 1);
+}
+
+#[test]
+fn swap_with_same_handle_does_nothing() {
+    let mut b = stadium::builder();
+    let h = b.insert(0);
+    let mut s = b.build();
+
+    assert_eq!(s[h], 0);
+    s.swap(h, h);
+    assert_eq!(s[h], 0);
+}
+
+#[test]
+#[should_panic(expected = "`b` is not associated with this `Stadium`")]
+fn swap_with_invalid_handle_panics() {
+    let mut b_1 = stadium::builder();
+    let mut b_2 = stadium::builder();
+    let h_1 = b_1.insert(0);
+    let h_2 = b_2.insert(0);
+    let mut s_1 = b_1.build();
+
+    s_1.swap(h_1, h_2)
+}
+
+#[test]
+fn swap_values() {
+    let mut bu = stadium::builder();
+    let a = bu.insert(1);
+    let b = bu.insert(2);
+    let mut s = bu.build();
+
+    assert_eq!(s[a], 1);
+    assert_eq!(s[b], 2);
+
+    s.swap(a, b);
+
+    assert_eq!(s[a], 2);
+    assert_eq!(s[b], 1);
 }
