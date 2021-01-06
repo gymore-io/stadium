@@ -106,7 +106,7 @@ impl Stadium {
     ///
     /// ## Safety
     ///
-    /// The given handle must've been created for this specific `Stadium`.
+    /// This function is unsafe unless the given handle is associated with this `Stadium`.
     //
     /// ## Example
     ///
@@ -130,7 +130,7 @@ impl Stadium {
     ///
     /// ## Panics
     ///
-    /// This function panics if the given handle was invalid.
+    /// This function panics if `handle` is not associated with this `Stadium`.
     ///
     /// ## Example
     ///
@@ -151,8 +151,7 @@ impl Stadium {
     ///
     /// ## Panics
     ///
-    /// This function panics if the given `Handle` was not created for this
-    /// `Stadium`.
+    /// This function panics if `handle` is not associated with this `Stadium`.
     ///
     /// ## Example
     ///
@@ -185,8 +184,7 @@ impl Stadium {
     ///
     /// ## Panics
     ///
-    /// This function panics if the given `Handle` was not created for this
-    /// `Stadium`.
+    /// This function panics if `handle` is not associated with this `Stadium`.
     ///
     /// ## Example
     ///
@@ -218,8 +216,7 @@ impl Stadium {
     ///
     /// ## Safety
     ///
-    /// Providing a handle that wasn't created for this specific `Stadium` is
-    /// undefined behaviour.
+    /// The provided `Handle` must be associated with this `Stadium`.
     ///
     /// ## Example
     ///
@@ -233,25 +230,18 @@ impl Stadium {
     /// ```
     #[inline(always)]
     pub unsafe fn get_unchecked<T>(&self, handle: Handle<T>) -> &T {
-        // SAFETY: The caller must ensure that the handle was created for this stadium.
-        // The stored index is always in bounds.
-        let location = self.locations.get_unchecked(handle.index);
-
-        // SAFETY: This cast is valid because the object handle "remembers" the
-        // type of the object at this location.
+        // SAFETY: This function can only be called using a shared reference to `self`
+        // This ensure that no one has a mutable reference to this `T`.
         //
-        // The dereference is valid be cause it is an invariant of the stadium
-        // that every location of the `locations` vector is valid and part
-        // of the stadium.
-        &*location.data.cast()
+        // The caller must ensure that `handle` is associated with this `Stadium`.
+        &*self.get_ptr(handle)
     }
 
     /// Gets a reference to a value that is part of the `Stadium`.
     ///
     /// ## Safety
     ///
-    /// Providing a handle that wasn't created for this specific `Stadium` is
-    /// undefined behaviour.
+    /// The provided `Handle` must be associated with this `Stadium`.
     ///
     /// ## Example
     ///
@@ -268,8 +258,11 @@ impl Stadium {
     /// ```
     #[inline(always)]
     pub unsafe fn get_unchecked_mut<T>(&mut self, handle: Handle<T>) -> &mut T {
-        // SAFETY: see `Stadium::get_unchecked`
-        &mut *self.locations.get_unchecked_mut(handle.index).data.cast()
+        // SAFETY: This function was called using a mutable reference to `self`.
+        // This ensure that no one else has a mutable reference to this `T`.
+        //
+        // The caller must ensure that `handle` is associated with this `Stadium`.
+        &mut *self.get_ptr_mut(handle)
     }
 
     /// Gets a pointer to the element referenced by the given `RawHandle`.
@@ -277,10 +270,10 @@ impl Stadium {
     /// ## Safety
     ///
     /// This function is unsafe unless:
-    ///  * The given `RawHandle` has been created using a `Handle` associated with
-    /// this `Stadium`.
+    ///  * The given `handle` is associated with this `Stadium`.
     ///  * The returned pointer is used *as if* it was a `*const T` where
     /// `T` is the type of the original `Handle` (it was `Handle<T>`).
+    #[inline(always)]
     pub unsafe fn get_ptr_raw(&self, handle: RawHandle) -> *const u8 {
         // SAFETY: The caller must ensure that the handle is actually valid.
         // A valid handle hold an index that is in bounds.
@@ -292,10 +285,10 @@ impl Stadium {
     /// ## Safety
     ///
     /// This function is unsafe unless:
-    ///  * The given `RawHandle` has been created using a `Handle` associated with
-    /// this `Stadium`.
+    ///  * The given `handle` is associated with this `Stadium`.
     ///  * The returned pointer is used *as if* it was a `*mut T` where
     /// `T` is the type of the original `Handle` (it was `Handle<T>`).
+    #[inline(always)]
     pub unsafe fn get_ptr_mut_raw(&mut self, handle: RawHandle) -> *mut u8 {
         // SAFETY: The caller must ensure that the handle is actually valid.
         // A valid handle hold an index that is in bounds.
@@ -306,9 +299,8 @@ impl Stadium {
     ///
     /// ## Safety
     ///
-    /// This function is unsafe unless:
-    ///  * The given `RawHandle` has been created using a `Handle` associated with
-    /// this `Stadium`.
+    /// The given `handle` must be associated with this `Stadium`.
+    #[inline(always)]
     pub unsafe fn get_ptr<T>(&self, handle: Handle<T>) -> *const T {
         // SAFETY: The caller must ensure that the handle was associated with this
         // `Stadium`.
@@ -320,9 +312,8 @@ impl Stadium {
     ///
     /// ## Safety
     ///
-    /// This function is unsafe unless:
-    ///  * The given `RawHandle` has been created using a `Handle` associated with
-    /// this `Stadium`.
+    /// The given `handle` must be associated with this `Stadium`.
+    #[inline(always)]
     pub unsafe fn get_ptr_mut<T>(&mut self, handle: Handle<T>) -> *mut T {
         // SAFETY: The caller must ensure that the handle was associated with this
         // `Stadium`.
