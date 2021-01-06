@@ -271,6 +271,64 @@ impl Stadium {
         // SAFETY: see `Stadium::get_unchecked`
         &mut *self.locations.get_unchecked_mut(handle.index).data.cast()
     }
+
+    /// Gets a pointer to the element referenced by the given `RawHandle`.
+    ///
+    /// ## Safety
+    ///
+    /// This function is unsafe unless:
+    ///  * The given `RawHandle` has been created using a `Handle` associated with
+    /// this `Stadium`.
+    ///  * The returned pointer is used *as if* it was a `*const T` where
+    /// `T` is the type of the original `Handle` (it was `Handle<T>`).
+    pub unsafe fn get_ptr_raw(&self, handle: RawHandle) -> *const u8 {
+        // SAFETY: The caller must ensure that the handle is actually valid.
+        // A valid handle hold an index that is in bounds.
+        self.locations.get_unchecked(handle.index).data
+    }
+
+    /// Gets a pointer to the element referenced by the given `RawHandle`.
+    ///
+    /// ## Safety
+    ///
+    /// This function is unsafe unless:
+    ///  * The given `RawHandle` has been created using a `Handle` associated with
+    /// this `Stadium`.
+    ///  * The returned pointer is used *as if* it was a `*mut T` where
+    /// `T` is the type of the original `Handle` (it was `Handle<T>`).
+    pub unsafe fn get_ptr_mut_raw(&mut self, handle: RawHandle) -> *mut u8 {
+        // SAFETY: The caller must ensure that the handle is actually valid.
+        // A valid handle hold an index that is in bounds.
+        self.locations.get_unchecked_mut(handle.index).data
+    }
+
+    /// Gets a pointer to the element referenced by the given `RawHandle`.
+    ///
+    /// ## Safety
+    ///
+    /// This function is unsafe unless:
+    ///  * The given `RawHandle` has been created using a `Handle` associated with
+    /// this `Stadium`.
+    pub unsafe fn get_ptr<T>(&self, handle: Handle<T>) -> *const T {
+        // SAFETY: The caller must ensure that the handle was associated with this
+        // `Stadium`.
+        // The raw handle was created from a `Handle<T>`.
+        self.get_ptr_raw(handle.raw()).cast()
+    }
+
+    /// Gets a pointer to the element referenced by the given `RawHandle`.
+    ///
+    /// ## Safety
+    ///
+    /// This function is unsafe unless:
+    ///  * The given `RawHandle` has been created using a `Handle` associated with
+    /// this `Stadium`.
+    pub unsafe fn get_ptr_mut<T>(&mut self, handle: Handle<T>) -> *mut T {
+        // SAFETY: The caller must ensure that the handle was associated with this
+        // `Stadium`.
+        // The raw handle was created from a `Handle<T>`.
+        self.get_ptr_mut_raw(handle.raw()).cast()
+    }
 }
 
 impl Drop for Stadium {
