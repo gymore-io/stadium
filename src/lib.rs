@@ -101,12 +101,11 @@ impl Stadium {
         handle.id == self.id
     }
 
-    /// Replaces the object referenced by the given handle assuming that the handle
-    /// was created for this specific `Stadium`.
+    /// Replaces the object referenced by the given handle.
     ///
     /// ## Safety
     ///
-    /// This function is unsafe unless the given handle is associated with this `Stadium`.
+    /// The provided `Handle` must be associated with this `Stadium`.
     //
     /// ## Example
     ///
@@ -360,6 +359,10 @@ impl Stadium {
 
     /// Swaps the values referenced by `a` and `b` within this `Stadium`.
     ///
+    /// ## Panics
+    ///
+    /// This function panics if one of `a` or `b` is not associated with tihs `Stadium`.
+    ///
     /// ## Example
     ///
     /// ```rust
@@ -436,7 +439,7 @@ struct Location {
 }
 
 /// A structure used to create a `Stadium`. This function can be created using
-/// the `Stadium::builder` function.
+/// the `stadium::builder` function.
 pub struct Builder {
     id: usize,
     reserved_objects: Vec<Reserved>,
@@ -638,9 +641,6 @@ impl Reserved {
     /// ## Panics
     ///
     /// This function panics if `T` is a zero-sized type.
-
-    // the static lifetime is there because we are going to drop the T without
-    // owning any of the potential references it could have.
     fn new<T>(init: T) -> Self {
         let uninit = Self::uninit(ObjectMeta::of::<T>());
 
@@ -675,6 +675,8 @@ impl Reserved {
             // SAFETY: `T` is not a zero-sized type.
             NonNull::new(alloc(meta.layout)).expect("Failed to allocate memory for a `T`")
         };
+
+        // Being uninit is a valid state for a `MaybeUninit<T>`
 
         Self {
             initial_value: ptr.cast(),

@@ -19,7 +19,7 @@ let h_int_b = builder.insert(65u64)
 // Once the initialization is done, the actual stadium can be created.
 let mut stadium = builder.build();
 
-// Values can be retreived.
+// Values can be retrieved.
 assert_eq!(&stadium[h_vec], &[2019, 2020, 2021][..]);
 assert_eq!(stadium[h_str], "Hello, world!");
 assert_eq!(stadium[h_int_a], 68);
