@@ -3,5 +3,13 @@ name = "stadium"
 version = "0.1.0"
 authors = ["Gymore <gymore.contact@gmail.com>"]
 edition = "2018"
+description = "A allocated chunk of memory populated by a fixed set of types"
+categories = ["os::windows-apis", "api-bindings"]
+license = "MIT"
+keywords = ["arena", "vector", "dynamic", "alloc"]
+repository = "https://github.com/gymore-io/stadium"
+documentation = "https://docs.rs/stadium/"
+readme = "readme.md"
 
-[dependencies]
+[badges.maintenance]
+status = "passively-maintained"
