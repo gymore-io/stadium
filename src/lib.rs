@@ -8,7 +8,7 @@ use mem::MaybeUninit;
 
 static NEXT_BUILDER_ID: AtomicUsize = AtomicUsize::new(0);
 
-/// Creates a new `Builder`.
+/// Creates a new [`Builder`].
 ///
 /// ## Example
 ///
@@ -17,6 +17,8 @@ static NEXT_BUILDER_ID: AtomicUsize = AtomicUsize::new(0);
 ///
 /// /* profit */
 /// ```
+///
+/// [`Builder`]: `struct.Builder.html`
 #[inline(always)]
 pub fn builder() -> Builder {
     Builder::new()
@@ -40,8 +42,10 @@ pub fn builder() -> Builder {
 /// assert_eq!(stadium[h_str], "World");
 /// ```
 ///
-/// Note that using a `String` or a `Vec` inside of a `Stadium` defies a bit of its
+/// Note that using a `String` or a `Vec` inside of a [`Stadium`] defies a bit of its
 /// original purpose (which is storing those different types localy in memory).
+///
+/// [`Stadium`]: struct.Stadium.html
 pub struct Stadium {
     /// The id of the stadium. This id is unique and prevent a user to use a handle
     /// from another stadium.
@@ -64,7 +68,7 @@ pub struct Stadium {
 }
 
 impl Stadium {
-    /// Creates a new `Builder`.
+    /// Creates a new [`Builder`].
     ///
     /// ## Example
     ///
@@ -73,12 +77,14 @@ impl Stadium {
     ///
     /// let builder = Stadium::builder();
     /// ```
+    ///
+    /// [`Builder`] struct.Builder.html
     #[inline(always)]
     pub fn builder() -> Builder {
         Builder::new()
     }
 
-    /// Checks if the given `Handle` can be safely used with this `Stadium`.
+    /// Checks if the given [`Handle`] can be safely used with this [`Stadium`].
     ///
     /// ## Example
     ///
@@ -96,17 +102,23 @@ impl Stadium {
     /// assert_eq!(stadium_2.is_associated_with(handle_2), true);
     /// assert_eq!(stadium_2.is_associated_with(handle_1), false);
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
     #[inline(always)]
     pub fn is_associated_with<T>(&self, handle: Handle<T>) -> bool {
         handle.id == self.id
     }
 
-    /// Replaces the object referenced by the given handle.
+    /// Replaces the object referenced by the given [`Handle`].
     ///
     /// ## Safety
     ///
-    /// The provided `Handle` must be associated with this `Stadium`.
-    //
+    /// The provided [`Handle`] must be associated with this [`Stadium`].
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
+    ///
     /// ## Example
     ///
     /// ```rust
@@ -120,16 +132,23 @@ impl Stadium {
     ///     assert_eq!(stadium.get_unchecked(handle), &5);
     /// }
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
     pub unsafe fn replace_unchecked<T>(&mut self, handle: Handle<T>, val: T) -> T {
         mem::replace(self.get_unchecked_mut(handle), val)
     }
 
-    /// Replaces the object referenced by the given handle with the given value.
+    /// Replaces the object referenced by the given [`Handle`] with the given value.
     ///
     /// ## Panics
     ///
-    /// This function panics if `handle` is not associated with this `Stadium`.
+    /// This function panics if `handle` is not associated with this [`Stadium`].
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
     ///
     /// ## Example
     ///
@@ -141,16 +160,23 @@ impl Stadium {
     /// assert_eq!(stadium.replace(handle, 6), 5);
     /// assert_eq!(stadium.get(handle), &6);
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
     pub fn replace<T>(&mut self, handle: Handle<T>, val: T) -> T {
         mem::replace(self.get_mut(handle), val)
     }
 
-    /// Gets a reference to a value that is part of the `Stadium`.
+    /// Gets a reference to a value that is part of the [`Stadium`].
     ///
     /// ## Panics
     ///
     /// This function panics if `handle` is not associated with this `Stadium`.
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
     ///
     /// ## Example
     ///
@@ -165,6 +191,10 @@ impl Stadium {
     /// assert_eq!(stadium.get(h_str), &"Hello, world");
     /// assert_eq!(stadium.get(h_num), &2023);
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline]
     pub fn get<T>(&self, handle: Handle<T>) -> &T {
         assert!(
@@ -180,11 +210,14 @@ impl Stadium {
         }
     }
 
-    /// Gets a reference to a value that is part of the `Stadium`.
+    /// Gets a reference to a value that is part of the [`Stadium`].
     ///
     /// ## Panics
     ///
-    /// This function panics if `handle` is not associated with this `Stadium`.
+    /// This function panics if `handle` is not associated with this [`Stadium`].
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
     ///
     /// ## Example
     ///
@@ -202,6 +235,10 @@ impl Stadium {
     /// assert_eq!(stadium.get(h_num), &5);
     /// assert_eq!(&stadium.get(h_vec)[..], &[1, 2, 3, 4])
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline]
     pub fn get_mut<T>(&mut self, handle: Handle<T>) -> &mut T {
         assert!(
@@ -213,11 +250,14 @@ impl Stadium {
         unsafe { self.get_unchecked_mut(handle) }
     }
 
-    /// Gets a reference to a value that is part of the `Stadium`.
+    /// Gets a reference to a value that is part of the [`Stadium`].
     ///
     /// ## Safety
     ///
-    /// The provided `Handle` must be associated with this `Stadium`.
+    /// The provided [`Handle`] must be associated with this [`Stadium`].
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
     ///
     /// ## Example
     ///
@@ -229,6 +269,10 @@ impl Stadium {
     /// // SAFETY: The handle was provided by the builder of this stadium.
     /// unsafe { assert_eq!(stadium.get_unchecked(handle), &5) };
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
     pub unsafe fn get_unchecked<T>(&self, handle: Handle<T>) -> &T {
         // SAFETY: This function can only be called using a shared reference to `self`
@@ -238,11 +282,14 @@ impl Stadium {
         &*self.get_ptr(handle)
     }
 
-    /// Gets a reference to a value that is part of the `Stadium`.
+    /// Gets a reference to a value that is part of the [`Stadium`].
     ///
     /// ## Safety
     ///
-    /// The provided `Handle` must be associated with this `Stadium`.
+    /// The provided [`Handle`] must be associated with this [`Stadium`].
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
     ///
     /// ## Example
     ///
@@ -257,6 +304,10 @@ impl Stadium {
     ///     assert_eq!(stadium.get_unchecked(handle), &4);
     /// }
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
     pub unsafe fn get_unchecked_mut<T>(&mut self, handle: Handle<T>) -> &mut T {
         // SAFETY: This function was called using a mutable reference to `self`.
@@ -266,14 +317,22 @@ impl Stadium {
         &mut *self.get_ptr_mut(handle)
     }
 
-    /// Gets a pointer to the element referenced by the given `RawHandle`.
+    /// Gets a pointer to the element referenced by the given [`RawHandle`].
     ///
     /// ## Safety
     ///
     /// This function is unsafe unless:
-    ///  * The given `handle` is associated with this `Stadium`.
+    ///  * The given [`Handle`] is associated with this [`Stadium`].
     ///  * The returned pointer is used *as if* it was a `*const T` where
-    /// `T` is the type of the original `Handle` (it was `Handle<T>`).
+    /// `T` is the type of the original [`Handle`] (it was `Handle<T>`).
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
+    /// [`RawHandle`]: struct.RawHandle.html
     #[inline(always)]
     pub unsafe fn get_ptr_raw(&self, handle: RawHandle) -> *const u8 {
         // SAFETY: The caller must ensure that the handle is actually valid.
@@ -281,14 +340,22 @@ impl Stadium {
         self.locations.get_unchecked(handle.index).data
     }
 
-    /// Gets a pointer to the element referenced by the given `RawHandle`.
+    /// Gets a pointer to the element referenced by the given [`RawHandle`].
     ///
     /// ## Safety
     ///
     /// This function is unsafe unless:
-    ///  * The given `handle` is associated with this `Stadium`.
+    ///  * The given [`Handle`] is associated with this [`Stadium`].
     ///  * The returned pointer is used *as if* it was a `*mut T` where
-    /// `T` is the type of the original `Handle` (it was `Handle<T>`).
+    /// `T` is the type of the original [`Handle`] (it was `Handle<T>`).
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
+    /// [`RawHandle`]: struct.RawHandle.html
     #[inline(always)]
     pub unsafe fn get_ptr_mut_raw(&mut self, handle: RawHandle) -> *mut u8 {
         // SAFETY: The caller must ensure that the handle is actually valid.
@@ -296,11 +363,18 @@ impl Stadium {
         self.locations.get_unchecked_mut(handle.index).data
     }
 
-    /// Gets a pointer to the element referenced by the given `RawHandle`.
+    /// Gets a pointer to the element referenced by the given [`Handle`].
     ///
     /// ## Safety
     ///
-    /// The given `handle` must be associated with this `Stadium`.
+    /// The given [`Handle`] must be associated with this [`Stadium`].
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
     pub unsafe fn get_ptr<T>(&self, handle: Handle<T>) -> *const T {
         // SAFETY: The caller must ensure that the handle was associated with this
@@ -309,11 +383,18 @@ impl Stadium {
         self.get_ptr_raw(handle.raw()).cast()
     }
 
-    /// Gets a pointer to the element referenced by the given `RawHandle`.
+    /// Gets a pointer to the element referenced by the given [`Handle`].
     ///
     /// ## Safety
     ///
-    /// The given `handle` must be associated with this `Stadium`.
+    /// The given [`Handle`] must be associated with this [`Stadium`].
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
     pub unsafe fn get_ptr_mut<T>(&mut self, handle: Handle<T>) -> *mut T {
         // SAFETY: The caller must ensure that the handle was associated with this
@@ -322,11 +403,11 @@ impl Stadium {
         self.get_ptr_mut_raw(handle.raw()).cast()
     }
 
-    /// Swaps the values referenced by `a` and `b` within this `Stadium`.
+    /// Swaps the values referenced by `a` and `b` within this [`Stadium`].
     ///
     /// ## Safety
     ///
-    /// * This given handles `a` and `b` must both be associated with this `Stadium`.
+    /// * This given handles `a` and `b` must both be associated with this [`Stadium`].
     /// * `a` must be different from `b`
     ///
     /// ## Example
@@ -346,6 +427,8 @@ impl Stadium {
     /// assert_eq!(s[a], "Bar");
     /// assert_eq!(s[b], "Foo");
     /// ```
+    ///
+    /// [`Stadium`]: struct.Stadium.html
     pub unsafe fn swap_unchecked<T>(&mut self, a: Handle<T>, b: Handle<T>) {
         // SAFETY: This function was called using a mutable reference to `self`
         // which mean no one else has a reference to any of those two objects.
@@ -357,11 +440,14 @@ impl Stadium {
         mem::swap(a, b);
     }
 
-    /// Swaps the values referenced by `a` and `b` within this `Stadium`.
+    /// Swaps the values referenced by `a` and `b` within this [`Stadium`].
     ///
     /// ## Panics
     ///
-    /// This function panics if one of `a` or `b` is not associated with tihs `Stadium`.
+    /// This function panics if one of `a` or `b` is not associated with tihs [`Stadium`].
+    ///
+    /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
+    /// [`Stadium::is_associated_with`] function.
     ///
     /// ## Example
     ///
@@ -379,6 +465,10 @@ impl Stadium {
     /// assert_eq!(s[a], "Bar");
     /// assert_eq!(s[b], "Foo");
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`Stadium`]: struct.Stadium.html
+    /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     pub fn swap<T>(&mut self, a: Handle<T>, b: Handle<T>) {
         if a != b {
             assert!(
@@ -438,15 +528,18 @@ struct Location {
     meta: ObjectMeta,
 }
 
-/// A structure used to create a `Stadium`. This function can be created using
-/// the `stadium::builder` function.
+/// A structure used to create a [`Stadium`]. This function can be created using
+/// the [`stadium::builder`] function.
+///
+/// [`Stadium`]: struct.Stadium.html
+/// [`stadium::builder`]: fn.builder.html
 pub struct Builder {
     id: usize,
     reserved_objects: Vec<Reserved>,
 }
 
 impl Builder {
-    /// Creates a new instance of `Builder`.
+    /// Creates a new instance of [`Builder`].
     ///
     /// ## Example
     ///
@@ -454,6 +547,8 @@ impl Builder {
     /// let builder = stadium::Builder::new();
     /// // That it! Now you have your own builder.
     /// ```
+    ///
+    /// [`Builder`]: struct.Builder.html
     #[inline(always)]
     pub fn new() -> Self {
         Self {
@@ -462,11 +557,13 @@ impl Builder {
         }
     }
 
-    /// Prepares the insertion of `init` into the stadium.
+    /// Prepares the insertion of `init` into the [`Stadium`].
     ///
     /// ## Panics
     ///
     /// This function panics if `T` is a zero-sized type.
+    ///
+    /// [`Stadium`]: struct.Stadium.html
     pub fn insert<T>(&mut self, init: T) -> Handle<T> {
         let index = self.reserved_objects.len();
         self.reserved_objects.push(Reserved::new(init));
@@ -477,26 +574,31 @@ impl Builder {
         }
     }
 
-    /// Prepares the insertion of a `MayveUninit<T>` into the stadium where
-    /// `T` is the type described by the given `ObjectMeta` structure.
+    /// Prepares the insertion of a `MayveUninit<T>` into the [`Stadium`] where
+    /// `T` is the type described by the given [`ObjectMeta`] structure.
     ///
     /// ## Panics
     ///
-    /// This function panics if the object described by `ObjectMeta` is a
+    /// This function panics if the object described by [`ObjectMeta`] is a
     /// a zero-sized type.
+    ///
+    /// [`ObjectMeta`]: struct.ObjectMeta.html
+    /// [`Stadium`]: struct.Stadium.html
     pub fn insert_raw(&mut self, meta: ObjectMeta) -> RawHandle {
         let index = self.reserved_objects.len();
         self.reserved_objects.push(Reserved::uninit(meta));
         RawHandle { index }
     }
 
-    /// Builds a new `Stadium`.
+    /// Builds a new [`Stadium`].
     ///
     /// ## Panics
     ///
     /// This function can panics if one of the following events occure:
     ///  * The builder is empty
     ///  * The function fails to allocate for the stadium
+    ///
+    /// [`Stadium`]: struct.Stadium.html
     pub fn build(self) -> Stadium {
         let objects = self.reserved_objects;
         let id = self.id;
@@ -612,7 +714,9 @@ pub struct ObjectMeta {
 }
 
 impl ObjectMeta {
-    /// Computes the `ObjectMeta` of the type `T`.
+    /// Computes the [`ObjectMeta`] of the type `T`.
+    ///
+    /// [`ObjectMeta`]: struct.ObjectMeta.html
     pub fn of<T>() -> Self {
         Self {
             layout: Layout::new::<T>(),
@@ -719,8 +823,11 @@ impl Drop for Reserved {
     }
 }
 
-/// A safe handle to a specific object stored in a specific `Stadium`. This handle can
-/// be optained from the `Builder::insert` function.
+/// A safe handle to a specific object stored in a specific [`Stadium`]. This handle can
+/// be optained from the [`Builder::insert`] function.
+///
+/// [`Stadium`]: struct.Stadium.html
+/// [`Builder::insert`]: struct.Builder.html#method.insert
 pub struct Handle<T> {
     /// The id of the stadium this handle exist for.
     id: usize,
@@ -759,7 +866,7 @@ impl<T> PartialEq for Handle<T> {
 impl<T> Eq for Handle<T> {}
 
 impl<T> Handle<T> {
-    /// Converts this `Handle` into a `RawHandle`.
+    /// Converts this [`Handle`] into a [`RawHandle`].
     ///
     /// ## Example
     ///
@@ -767,6 +874,9 @@ impl<T> Handle<T> {
     /// let mut builder = stadium::builder();
     /// let raw_handle = builder.insert("Hello").raw();
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`RawHandle`]: struct.RawHandle.html
     #[inline(always)]
     pub fn raw(self) -> RawHandle {
         RawHandle { index: self.index }
@@ -781,13 +891,13 @@ pub struct RawHandle {
 }
 
 impl RawHandle {
-    /// Recreate an `Handle` from this `RawHandle`.
+    /// Recreate an [`Handle`] from this [`RawHandle`].
     ///
     /// ## Safety
     ///
-    ///  * The generic type parameter `T` must be the same as the original `Handle`
-    /// that was used to produce this `RawHandle`.
-    ///  * The given `Stadium` must be the one associated with the original handle.
+    ///  * The generic type parameter `T` must be the same as the original [`Handle`]
+    /// that was used to produce this [`RawHandle`].
+    ///  * The given [`Stadium`] must be the one associated with the original handle.
     ///
     /// ## Example
     ///
@@ -804,6 +914,10 @@ impl RawHandle {
     ///
     /// assert_eq!(stadium[handle], 5);
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`RawHandle`]: struct.RawHandle.html
+    /// [`Stadium`]: struct.Stadium.html
     #[inline(always)]
     pub unsafe fn trust<T>(self, stadium: &Stadium) -> Handle<T> {
         Handle {
@@ -813,13 +927,13 @@ impl RawHandle {
         }
     }
 
-    /// Recreate an `Handle` from this `RawHandle`.
+    /// Recreate an [`Handle`] from this [`RawHandle`].
     ///
     /// ## Safety
     ///
-    ///  * The generic type parameter `T` must be the same as the original `Handle`
+    ///  * The generic type parameter `T` must be the same as the original [`Handle`]
     /// that was used to produce this `RawHandle`.
-    ///  * The given `Builder` must be the one associated with the original handle.
+    ///  * The given [`Builder`] must be the one associated with the original handle.
     ///
     /// ## Example
     ///
@@ -833,6 +947,10 @@ impl RawHandle {
     /// let stadium = builder.build();
     /// assert_eq!(stadium[handle], 5);
     /// ```
+    ///
+    /// [`Handle`]: struct.Handle.html
+    /// [`RawHandle`]: struct.RawHandle.html
+    /// [`Builder`]: struct.Builder.html
     #[inline(always)]
     pub unsafe fn trust_with_builder<T>(self, builder: &Builder) -> Handle<T> {
         Handle {

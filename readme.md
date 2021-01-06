@@ -2,7 +2,7 @@
 [![Crates.io](https://img.shields.io/crates/v/stadium.svg)](https://crates.io/crates/stadium)
 
 
-`stadium` provides the `Stadium` structure. This datastructure allows you to allocate any given set of objects (that can be of different types) in a continuous chunk of the memory.
+`stadium` provides the [`Stadium`] structure. This datastructure allows you to allocate any given set of objects (that can be of different types) in a continuous chunk of the memory.
 
 ## Example
 
@@ -35,3 +35,5 @@ stadium.swap(h_int_a, h_int_b);
 assert_eq!(stadium[h_int_a], 70);
 assert_eq!(stadium[h_int_b], 68);
 ```
+
+[Stadium]: https://docs.rs/stadium/struct.Stadium.html
