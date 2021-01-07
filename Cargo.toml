@@ -1,10 +1,10 @@
 [package]
 name = "stadium"
-version = "0.1.0"
+version = "0.1.2"
 authors = ["Gymore <gymore.contact@gmail.com>"]
 edition = "2018"
 description = "A allocated chunk of memory populated by a fixed set of types"
-categories = ["os::windows-apis", "api-bindings"]
+categories = ["data-structures", "memory-management"]
 license = "MIT"
 keywords = ["arena", "vector", "dynamic", "alloc"]
 repository = "https://github.com/gymore-io/stadium"

@@ -14,8 +14,7 @@ impl Drop for DropCounter {
 }
 
 #[test]
-#[should_panic(expected = "You cannot create a stadium with no elements in it")]
-fn panic_on_build_with_no_objects() {
+fn build_with_no_objects() {
     stadium::builder().build();
 }
 
@@ -59,15 +58,13 @@ fn build_with_300_objects() {
 }
 
 #[test]
-#[should_panic(expected = "You cannot put a zero-sized type into a `Stadium`")]
-fn panic_on_zero_sized_type_insert() {
+fn zero_sized_type_insert() {
     let mut b = stadium::builder();
     b.insert(());
 }
 
 #[test]
-#[should_panic(expected = "You cannot put a zero-sized type into a `Stadium`")]
-fn panic_on_zero_sized_type_insert_raw() {
+fn zero_sized_type_insert_raw() {
     let meta = stadium::ObjectMeta::of::<()>();
     let mut b = stadium::builder();
     b.insert_raw(meta);
@@ -211,4 +208,22 @@ fn the_stadium_properly_drops_everything() {
     }
 
     assert_eq!(drop_count.get(), 100);
+}
+
+#[test]
+fn the_builder_does_not_deallocate_zst() {
+    let mut b = stadium::builder();
+    let _ = b.insert(());
+
+    // this should corrupt the memory if it tries to deallocate
+    // the `()`.
+    //  ... in debug mode at least
+}
+
+#[test]
+fn stadium_can_retrieve_zst() {
+    let mut b = stadium::builder();
+    let h = b.insert(());
+    let s = b.build();
+    assert_eq!(s[h], ());
 }

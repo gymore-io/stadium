@@ -30,6 +30,7 @@ pub fn builder() -> Builder {
 ///
 /// ```rust
 /// let mut builder = stadium::builder();
+///
 /// let h_vec = builder.insert(vec![1, 2, 3, 4]);
 /// let h_string = builder.insert(String::from("Hello"));
 /// let h_str = builder.insert("World");
@@ -64,7 +65,7 @@ pub struct Stadium {
     ///
     /// When a handle is given by a `Builder`, the `index` and the `T` of that
     /// handle must always match the `Location` at the given index in this vector.
-    locations: Vec<Location>,
+    locations: Box<[Location]>,
 }
 
 impl Stadium {
@@ -489,7 +490,7 @@ impl Stadium {
 
 impl Drop for Stadium {
     fn drop(&mut self) {
-        for location in &self.locations {
+        for location in self.locations.iter() {
             if let Some(drop_fn) = location.meta.drop_fn {
                 // SAFETY: The data in the stadium is always initialized.
                 unsafe { drop_fn(location.data) };
@@ -499,8 +500,11 @@ impl Drop for Stadium {
         // Now that all objects are dropped
         // We can deallocate the chunk of memory
 
-        // SAFETY: The chunk was allocated with the same allocator and layout.
-        unsafe { dealloc(self.data.as_ptr(), self.layout) };
+        // check for empty stadiums
+        if self.data != NonNull::dangling() {
+            // SAFETY: The chunk was allocated with the same allocator and layout.
+            unsafe { dealloc(self.data.as_ptr(), self.layout) };
+        }
     }
 }
 
@@ -561,7 +565,7 @@ impl Builder {
     ///
     /// ## Panics
     ///
-    /// This function panics if `T` is a zero-sized type.
+    /// This function panics if it fails to allocate a box for `init`.
     ///
     /// [`Stadium`]: struct.Stadium.html
     pub fn insert<T>(&mut self, init: T) -> Handle<T> {
@@ -574,13 +578,12 @@ impl Builder {
         }
     }
 
-    /// Prepares the insertion of a `MayveUninit<T>` into the [`Stadium`] where
+    /// Prepares the insertion of a `MaybeUninit<T>` into the [`Stadium`] where
     /// `T` is the type described by the given [`ObjectMeta`] structure.
     ///
     /// ## Panics
     ///
-    /// This function panics if the object described by [`ObjectMeta`] is a
-    /// a zero-sized type.
+    /// This function panics if it fails to allocate a box for a `MaybeUninit<T>`.
     ///
     /// [`ObjectMeta`]: struct.ObjectMeta.html
     /// [`Stadium`]: struct.Stadium.html
@@ -603,10 +606,6 @@ impl Builder {
         let objects = self.reserved_objects;
         let id = self.id;
 
-        if objects.is_empty() {
-            panic!("You cannot create a stadium with no elements in it");
-        }
-
         let mut total_size = 0;
         let mut max_align = 1;
 
@@ -618,11 +617,13 @@ impl Builder {
         let layout = Layout::from_size_align(total_size, max_align)
             .expect("Failed to compute the layout of the stadium");
 
-        // SAFETY: A `Reserved` cannot store a zero-sized type and we know the
-        // `reserved_objects` vector is not empty. Therefor, `total_size` must be
-        // non-null.
         let ptr = unsafe {
-            NonNull::new(alloc(layout)).expect("Failed to allocate memory for the stadium")
+            if total_size == 0 {
+                // The stadium will be either empty or only store zero-sized types.
+                NonNull::dangling() // zero-sized allocation
+            } else {
+                NonNull::new(alloc(layout)).expect("Failed to allocate memory for the stadium")
+            }
         };
 
         let object_count = objects.len();
@@ -634,6 +635,7 @@ impl Builder {
 
         // We need this structure to map the handles that the builder has given
         // to actual objects within the stadium.
+        // TODO: use `Box::new_uninit_slice` when stable.
         let mut locations: Vec<Location> = Vec::with_capacity(object_count);
 
         let mut cursor = ptr.as_ptr();
@@ -685,7 +687,7 @@ impl Builder {
             id,
             data: ptr,
             layout,
-            locations,
+            locations: locations.into_boxed_slice(),
         }
     }
 }
@@ -744,12 +746,13 @@ impl Reserved {
     ///
     /// ## Panics
     ///
-    /// This function panics if `T` is a zero-sized type.
+    /// This function panics if it fails to allocate a box for the given `T`.
     fn new<T>(init: T) -> Self {
         let uninit = Self::uninit(ObjectMeta::of::<T>());
 
         // SAFETY: This pointer is not aliased anywhere and is properly aligned.
         // It is also know to not be initialized.
+        // For zero-sized types, the `write` operation is a no-op.
         unsafe {
             uninit
                 .initial_value
@@ -769,15 +772,16 @@ impl Reserved {
     ///
     /// ## Panics
     ///
-    /// This function panics if `meta` describes a zero-sized type.
+    /// This function panics if it fails to allocate a box for `T`.
     fn uninit(meta: ObjectMeta) -> Self {
-        if meta.layout.size() == 0 {
-            panic!("You cannot put a zero-sized type into a `Stadium`");
-        }
-
         let ptr = unsafe {
-            // SAFETY: `T` is not a zero-sized type.
-            NonNull::new(alloc(meta.layout)).expect("Failed to allocate memory for a `T`")
+            if meta.layout.size() == 0 {
+                // dangling means zero-sized allocation
+                NonNull::dangling()
+            } else {
+                // SAFETY: `T` is not a zero-sized type.
+                NonNull::new(alloc(meta.layout)).expect("Failed to allocate memory for a `T`")
+            }
         };
 
         // Being uninit is a valid state for a `MaybeUninit<T>`
@@ -817,9 +821,12 @@ impl Drop for Reserved {
             unsafe { drop_fn(self.initial_value.as_ptr()) };
         }
 
-        // SAFETY: The layout was used to allocate the `T` in `Self::new` and the value
-        // that was here was properly dropped beforehand.
-        unsafe { dealloc(self.initial_value.as_ptr(), self.meta.layout) };
+        // check for zero-sized types
+        if self.initial_value != NonNull::dangling() {
+            // SAFETY: The layout was used to allocate the `T` in `Self::new` and the value
+            // that was here was properly dropped beforehand.
+            unsafe { dealloc(self.initial_value.as_ptr(), self.meta.layout) };
+        }
     }
 }
 
