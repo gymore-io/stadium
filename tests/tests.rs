@@ -227,3 +227,22 @@ fn stadium_can_retrieve_zst() {
     let s = b.build();
     assert_eq!(s[h], ());
 }
+
+#[test]
+fn zst_operations() {
+    let mut b = stadium::builder();
+    let h_a = b.insert(());
+    let h_b = b.insert(());
+
+    let mut s = b.build();
+
+    assert_eq!(s[h_a], ());
+    assert_eq!(s[h_b], ());
+    assert_eq!(s.replace(h_a, ()), ());
+    assert_eq!(s.replace(h_b, ()), ());
+
+    s.swap(h_a, h_b);
+
+    assert_eq!(s[h_a], ());
+    assert_eq!(s[h_b], ());
+}
