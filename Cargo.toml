@@ -1,9 +1,9 @@
 [package]
 name = "stadium"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Gymore <gymore.contact@gmail.com>"]
 edition = "2018"
-description = "A allocated chunk of memory populated by a fixed set of types"
+description = "A allocated chunk of memory populated with a fixed set of types"
 categories = ["data-structures", "memory-management"]
 license = "MIT"
 keywords = ["arena", "vector", "dynamic", "alloc"]

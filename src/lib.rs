@@ -1,4 +1,4 @@
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
 use std::marker::PhantomData;
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -53,6 +53,8 @@ pub struct Stadium {
     id: usize,
 
     /// A pointer to the owned data.
+    ///
+    /// In the case of an empty allocation, this pointer is `NonNull::dangling()`.
     data: NonNull<u8>,
 
     /// The layout that was used to allocate the stadium.
@@ -622,7 +624,7 @@ impl Builder {
                 // The stadium will be either empty or only store zero-sized types.
                 NonNull::dangling() // zero-sized allocation
             } else {
-                NonNull::new(alloc(layout)).expect("Failed to allocate memory for the stadium")
+                NonNull::new(alloc(layout)).unwrap_or_else(|| handle_alloc_error(layout))
             }
         };
 
@@ -751,7 +753,7 @@ impl Reserved {
         let uninit = Self::uninit(ObjectMeta::of::<T>());
 
         // SAFETY: This pointer is not aliased anywhere and is properly aligned.
-        // It is also know to not be initialized.
+        // It is also know not to be initialized.
         // For zero-sized types, the `write` operation is a no-op.
         unsafe {
             uninit
@@ -780,7 +782,7 @@ impl Reserved {
                 NonNull::dangling()
             } else {
                 // SAFETY: `T` is not a zero-sized type.
-                NonNull::new(alloc(meta.layout)).expect("Failed to allocate memory for a `T`")
+                NonNull::new(alloc(meta.layout)).unwrap_or_else(|| handle_alloc_error(meta.layout))
             }
         };
 
@@ -892,6 +894,7 @@ impl<T> Handle<T> {
 
 /// A handle to a `T` that does not own a `T`. This handle dos not remember
 /// what stadium created it.
+#[derive(Clone, Copy)]
 pub struct RawHandle {
     /// The index of the location of the object referenced by this handle.
     index: usize,
