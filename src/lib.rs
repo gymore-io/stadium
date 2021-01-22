@@ -801,15 +801,23 @@ impl Reserved {
     ///
     /// `target` must be a valid location for an object of type `T` to be written on.
     unsafe fn consume(self, target: *mut u8) -> ObjectMeta {
-        // SAFETY: We are moving the value referenced by `initial_value` to
-        // `target`.
-        ptr::copy_nonoverlapping(self.initial_value.as_ptr(), target, self.meta.layout.size());
-
+        let initial_value = self.initial_value;
         let meta = self.meta;
 
         // `self` mut not be dropped because this would cause the value at `initial_value`
         // to be dropped even though it was moved.
         mem::forget(self);
+
+        // SAFETY: We are moving the value referenced by `initial_value` to
+        // `target`.
+        ptr::copy_nonoverlapping(initial_value.as_ptr(), target, meta.layout.size());
+
+        // We have to dealloc the layout though.
+        // SAFETY: The `layout.align()` is never null.
+        let dangling = NonNull::new_unchecked(meta.layout.align() as _);
+        if initial_value != dangling {
+            dealloc(initial_value.as_ptr(), meta.layout);
+        }
 
         meta
     }
