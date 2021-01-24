@@ -36,4 +36,4 @@ assert_eq!(stadium[h_int_a], 70);
 assert_eq!(stadium[h_int_b], 68);
 ```
 
-[Stadium]: https://docs.rs/stadium/struct.Stadium.html
+[`Stadium`]: https://docs.rs/stadium/struct.Stadium.html

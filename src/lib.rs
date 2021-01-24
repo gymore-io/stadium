@@ -20,7 +20,7 @@ static NEXT_BUILDER_ID: AtomicUsize = AtomicUsize::new(0);
 ///
 /// [`Builder`]: `struct.Builder.html`
 #[inline(always)]
-pub fn builder() -> Builder {
+pub fn builder<'a>() -> Builder<'a> {
     Builder::new()
 }
 
@@ -47,7 +47,7 @@ pub fn builder() -> Builder {
 /// original purpose (which is storing those different types localy in memory).
 ///
 /// [`Stadium`]: struct.Stadium.html
-pub struct Stadium {
+pub struct Stadium<'a> {
     /// The id of the stadium. This id is unique and prevent a user to use a handle
     /// from another stadium.
     id: usize,
@@ -68,9 +68,12 @@ pub struct Stadium {
     /// When a handle is given by a `Builder`, the `index` and the `T` of that
     /// handle must always match the `Location` at the given index in this vector.
     locations: Box<[Location]>,
+
+    /// The lifetime of the types used inside of the stadium.
+    _lifetime: PhantomData<&'a ()>,
 }
 
-impl Stadium {
+impl<'a> Stadium<'a> {
     /// Creates a new [`Builder`].
     ///
     /// ## Example
@@ -83,7 +86,7 @@ impl Stadium {
     ///
     /// [`Builder`] struct.Builder.html
     #[inline(always)]
-    pub fn builder() -> Builder {
+    pub fn builder() -> Builder<'a> {
         Builder::new()
     }
 
@@ -109,7 +112,7 @@ impl Stadium {
     /// [`Handle`]: struct.Handle.html
     /// [`Stadium`]: struct.Stadium.html
     #[inline(always)]
-    pub fn is_associated_with<T>(&self, handle: Handle<T>) -> bool {
+    pub fn is_associated_with<T: 'a>(&self, handle: Handle<T>) -> bool {
         handle.id == self.id
     }
 
@@ -140,7 +143,7 @@ impl Stadium {
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
-    pub unsafe fn replace_unchecked<T>(&mut self, handle: Handle<T>, val: T) -> T {
+    pub unsafe fn replace_unchecked<T: 'a>(&mut self, handle: Handle<T>, val: T) -> T {
         mem::replace(self.get_unchecked_mut(handle), val)
     }
 
@@ -168,7 +171,7 @@ impl Stadium {
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
-    pub fn replace<T>(&mut self, handle: Handle<T>, val: T) -> T {
+    pub fn replace<T: 'a>(&mut self, handle: Handle<T>, val: T) -> T {
         mem::replace(self.get_mut(handle), val)
     }
 
@@ -199,7 +202,7 @@ impl Stadium {
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline]
-    pub fn get<T>(&self, handle: Handle<T>) -> &T {
+    pub fn get<T: 'a>(&self, handle: Handle<T>) -> &T {
         assert!(
             self.is_associated_with(handle),
             "The given handle was not created for this stadium"
@@ -243,7 +246,7 @@ impl Stadium {
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline]
-    pub fn get_mut<T>(&mut self, handle: Handle<T>) -> &mut T {
+    pub fn get_mut<T: 'a>(&mut self, handle: Handle<T>) -> &mut T {
         assert!(
             self.is_associated_with(handle),
             "The given handle was not created for this stadium"
@@ -277,7 +280,7 @@ impl Stadium {
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
-    pub unsafe fn get_unchecked<T>(&self, handle: Handle<T>) -> &T {
+    pub unsafe fn get_unchecked<T: 'a>(&self, handle: Handle<T>) -> &T {
         // SAFETY: This function can only be called using a shared reference to `self`
         // This ensure that no one has a mutable reference to this `T`.
         //
@@ -312,7 +315,7 @@ impl Stadium {
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
-    pub unsafe fn get_unchecked_mut<T>(&mut self, handle: Handle<T>) -> &mut T {
+    pub unsafe fn get_unchecked_mut<T: 'a>(&mut self, handle: Handle<T>) -> &mut T {
         // SAFETY: This function was called using a mutable reference to `self`.
         // This ensure that no one else has a mutable reference to this `T`.
         //
@@ -379,7 +382,7 @@ impl Stadium {
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
-    pub unsafe fn get_ptr<T>(&self, handle: Handle<T>) -> *const T {
+    pub unsafe fn get_ptr<T: 'a>(&self, handle: Handle<T>) -> *const T {
         // SAFETY: The caller must ensure that the handle was associated with this
         // `Stadium`.
         // The raw handle was created from a `Handle<T>`.
@@ -399,7 +402,7 @@ impl Stadium {
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
     #[inline(always)]
-    pub unsafe fn get_ptr_mut<T>(&mut self, handle: Handle<T>) -> *mut T {
+    pub unsafe fn get_ptr_mut<T: 'a>(&mut self, handle: Handle<T>) -> *mut T {
         // SAFETY: The caller must ensure that the handle was associated with this
         // `Stadium`.
         // The raw handle was created from a `Handle<T>`.
@@ -432,7 +435,7 @@ impl Stadium {
     /// ```
     ///
     /// [`Stadium`]: struct.Stadium.html
-    pub unsafe fn swap_unchecked<T>(&mut self, a: Handle<T>, b: Handle<T>) {
+    pub unsafe fn swap_unchecked<T: 'a>(&mut self, a: Handle<T>, b: Handle<T>) {
         // SAFETY: This function was called using a mutable reference to `self`
         // which mean no one else has a reference to any of those two objects.
         //
@@ -472,7 +475,7 @@ impl Stadium {
     /// [`Handle`]: struct.Handle.html
     /// [`Stadium`]: struct.Stadium.html
     /// [`Stadium::is_associated_with`]: struct.Stadium.html#method.is_associated_with
-    pub fn swap<T>(&mut self, a: Handle<T>, b: Handle<T>) {
+    pub fn swap<T: 'a>(&mut self, a: Handle<T>, b: Handle<T>) {
         if a != b {
             assert!(
                 self.is_associated_with(a),
@@ -490,7 +493,7 @@ impl Stadium {
     }
 }
 
-impl Drop for Stadium {
+impl Drop for Stadium<'_> {
     fn drop(&mut self) {
         for location in self.locations.iter() {
             if let Some(drop_fn) = location.meta.drop_fn {
@@ -510,7 +513,7 @@ impl Drop for Stadium {
     }
 }
 
-impl<T> ops::Index<Handle<T>> for Stadium {
+impl<'a, T: 'a> ops::Index<Handle<T>> for Stadium<'a> {
     type Output = T;
 
     #[inline(always)]
@@ -519,7 +522,7 @@ impl<T> ops::Index<Handle<T>> for Stadium {
     }
 }
 
-impl<T> ops::IndexMut<Handle<T>> for Stadium {
+impl<'a, T: 'a> ops::IndexMut<Handle<T>> for Stadium<'a> {
     #[inline(always)]
     fn index_mut(&mut self, handle: Handle<T>) -> &mut Self::Output {
         self.get_mut(handle)
@@ -539,12 +542,12 @@ struct Location {
 ///
 /// [`Stadium`]: struct.Stadium.html
 /// [`stadium::builder`]: fn.builder.html
-pub struct Builder {
+pub struct Builder<'a> {
     id: usize,
-    reserved_objects: Vec<Reserved>,
+    reserved_objects: Vec<Reserved<'a>>,
 }
 
-impl Builder {
+impl<'a> Builder<'a> {
     /// Creates a new instance of [`Builder`].
     ///
     /// ## Example
@@ -570,7 +573,7 @@ impl Builder {
     /// This function panics if it fails to allocate a box for `init`.
     ///
     /// [`Stadium`]: struct.Stadium.html
-    pub fn insert<T>(&mut self, init: T) -> Handle<T> {
+    pub fn insert<T: 'a>(&mut self, init: T) -> Handle<T> {
         let index = self.reserved_objects.len();
         self.reserved_objects.push(Reserved::new(init));
         Handle {
@@ -604,7 +607,7 @@ impl Builder {
     ///  * The function fails to allocate for the stadium
     ///
     /// [`Stadium`]: struct.Stadium.html
-    pub fn build(self) -> Stadium {
+    pub fn build(self) -> Stadium<'a> {
         let objects = self.reserved_objects;
         let id = self.id;
 
@@ -690,13 +693,14 @@ impl Builder {
             data: ptr,
             layout,
             locations: locations.into_boxed_slice(),
+            _lifetime: PhantomData,
         }
     }
 }
 
-impl From<Builder> for Stadium {
+impl<'a> From<Builder<'a>> for Stadium<'a> {
     #[inline(always)]
-    fn from(builder: Builder) -> Self {
+    fn from(builder: Builder<'a>) -> Self {
         builder.build()
     }
 }
@@ -736,20 +740,23 @@ impl ObjectMeta {
 /// Stores information about a `T` as well as an initialized instance of `T`.
 ///
 /// This structure never stores a zero-sized struct.
-struct Reserved {
+struct Reserved<'a> {
     /// Stores information about a `T`.
     meta: ObjectMeta,
     /// A pointer to an initialized value of type `T`.
     initial_value: NonNull<u8>,
+
+    // The lifetime of `T`.
+    _lifetime: PhantomData<&'a ()>,
 }
 
-impl Reserved {
+impl<'a> Reserved<'a> {
     /// Creates a new instance of `Reserved` from the given initial value.
     ///
     /// ## Panics
     ///
     /// This function panics if it fails to allocate a box for the given `T`.
-    fn new<T>(init: T) -> Self {
+    fn new<T: 'a>(init: T) -> Self {
         let uninit = Self::uninit(ObjectMeta::of::<T>());
 
         // SAFETY: This pointer is not aliased anywhere and is properly aligned.
@@ -791,6 +798,7 @@ impl Reserved {
         Self {
             initial_value: ptr.cast(),
             meta,
+            _lifetime: PhantomData,
         }
     }
 
@@ -823,7 +831,7 @@ impl Reserved {
     }
 }
 
-impl Drop for Reserved {
+impl Drop for Reserved<'_> {
     fn drop(&mut self) {
         // We have to drop the initial value that was not used.
         if let Some(drop_fn) = self.meta.drop_fn {
