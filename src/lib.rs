@@ -738,8 +738,6 @@ impl ObjectMeta {
 }
 
 /// Stores information about a `T` as well as an initialized instance of `T`.
-///
-/// This structure never stores a zero-sized struct.
 struct Reserved<'a> {
     /// Stores information about a `T`.
     meta: ObjectMeta,
