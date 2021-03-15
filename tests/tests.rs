@@ -246,3 +246,29 @@ fn zst_operations() {
     assert_eq!(s[h_a], ());
     assert_eq!(s[h_b], ());
 }
+
+#[test]
+fn insert_zeroed() {
+    let mut b = stadium::builder();
+    let h_a = unsafe { b.insert_zeroed::<u8>() };
+    let h_b = unsafe { b.insert_zeroed::<u128>() };
+
+    let s = b.build();
+
+    assert_eq!(s[h_a], 0u8);
+    assert_eq!(s[h_b], 0u128);
+}
+
+#[test]
+fn insert_default() {
+    let mut b = stadium::builder();
+    let h_a = b.insert_default::<Vec<u8>>();
+    let h_b = b.insert_default::<Option<u8>>();
+    let h_c = b.insert_default::<u128>();
+
+    let s = b.build();
+
+    assert_eq!(&s[h_a], &[]);
+    assert_eq!(s[h_b], None);
+    assert_eq!(s[h_c], 0u128);
+}

@@ -1,10 +1,9 @@
 use std::alloc::{alloc, dealloc, handle_alloc_error, Layout};
 use std::marker::PhantomData;
+use std::mem::{transmute, MaybeUninit};
 use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{fmt, mem, ops};
-
-use mem::MaybeUninit;
 
 static NEXT_BUILDER_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -586,16 +585,69 @@ impl<'a> Builder<'a> {
     /// Prepares the insertion of a `MaybeUninit<T>` into the [`Stadium`] where
     /// `T` is the type described by the given [`ObjectMeta`] structure.
     ///
-    /// ## Panics
-    ///
-    /// This function panics if it fails to allocate a box for a `MaybeUninit<T>`.
-    ///
     /// [`ObjectMeta`]: struct.ObjectMeta.html
     /// [`Stadium`]: struct.Stadium.html
     pub fn insert_raw(&mut self, meta: ObjectMeta) -> RawHandle {
         let index = self.reserved_objects.len();
         self.reserved_objects.push(Reserved::uninit(meta));
         RawHandle { index }
+    }
+
+    /// Prepares the insertion of a `MaybeUninit<T>` into the [`Stadium`].
+    ///
+    /// [`Stadium`]: struct.Stadium.html
+    pub fn insert_uninit<T>(&mut self) -> Handle<MaybeUninit<T>> {
+        let meta = ObjectMeta::of::<T>();
+        let handle = self.insert_raw(meta);
+        unsafe { handle.trust_with_builder(&self) }
+    }
+
+    /// Prepares the insertion of a `T` into the [`Stadium`] where `T` is the type
+    /// described by the given [`ObjectMeta`] structure.
+    ///
+    /// # Safety
+    ///
+    /// `T` must be safely created using `mem::zeroed()`.
+    ///
+    /// [`ObjectMeta`]: struct.ObjectMeta.html
+    /// [`Stadium`]: struct.Stadium.html
+    pub unsafe fn insert_zeroed_raw(&mut self, meta: ObjectMeta) -> RawHandle {
+        let index = self.reserved_objects.len();
+        self.reserved_objects.push(Reserved::zeroed(meta));
+        RawHandle { index }
+    }
+
+    /// Prepares the insertion of a `T` into the [`Stadium`].
+    ///
+    /// # Safety
+    ///
+    /// `T` must be safely created using `mem::zeroed()`.
+    ///
+    /// [`Stadium`]: struct.Stadium.html
+    pub unsafe fn insert_zeroed<T>(&mut self) -> Handle<T> {
+        let meta = ObjectMeta::of::<T>();
+        let handle = self.insert_zeroed_raw(meta);
+        handle.trust_with_builder(self)
+    }
+
+    /// Prepares the insertion of a `T` into the [`Stadium`].
+    /// The `T` will be automatically initialized to its default value.
+    ///
+    /// [`Stadium`]: struct.Stadium.html
+    pub fn insert_default<T: Default>(&mut self) -> Handle<T> {
+        unsafe fn write_default<T: Default>(ptr: *mut T) {
+            ptr.write(T::default())
+        }
+
+        let index = self.reserved_objects.len();
+        self.reserved_objects
+            .push(unsafe { Reserved::func(write_default::<T>) });
+
+        Handle {
+            id: self.id,
+            index,
+            _marker: PhantomData,
+        }
     }
 
     /// Builds a new [`Stadium`].
@@ -737,12 +789,31 @@ impl ObjectMeta {
     }
 }
 
+/// Describes how a reserved value should be initialized when a stadium is
+/// created.
+enum InitialValue {
+    /// The value may be left uninitialized.
+    Uninit,
+    /// The value should be initialized using `mem::zeroed()`.
+    Zeroed,
+    /// The value should be initialized by a function.
+    ///
+    /// # Safety
+    ///
+    /// The `*mut u8` given to the inner function must be a valid location for
+    /// a `T` to be written.
+    Fn(unsafe fn(*mut u8)),
+    /// The value should be initialized using the allocated value.
+    Value(NonNull<u8>),
+}
+
 /// Stores information about a `T` as well as an initialized instance of `T`.
 struct Reserved<'a> {
     /// Stores information about a `T`.
     meta: ObjectMeta,
-    /// A pointer to an initialized value of type `T`.
-    initial_value: NonNull<u8>,
+
+    /// The actual reserved value.
+    initial_value: InitialValue,
 
     // The lifetime of `T`.
     _lifetime: PhantomData<&'a ()>,
@@ -755,23 +826,31 @@ impl<'a> Reserved<'a> {
     ///
     /// This function panics if it fails to allocate a box for the given `T`.
     fn new<T: 'a>(init: T) -> Self {
-        let uninit = Self::uninit(ObjectMeta::of::<T>());
+        let meta = ObjectMeta::of::<T>();
 
-        // SAFETY: This pointer is not aliased anywhere and is properly aligned.
-        // It is also know not to be initialized.
-        // For zero-sized types, the `write` operation is a no-op.
-        unsafe {
-            uninit
-                .initial_value
-                .as_ptr()
-                .cast::<MaybeUninit<T>>()
-                .write(MaybeUninit::new(init));
+        let initial_value = unsafe {
+            if meta.layout.size() == 0 {
+                // ZSTs can be left uninitialized.
+                InitialValue::Uninit
+            } else {
+                // SAFETY: `T` is not a zero-sized type.
+                let ptr = NonNull::new(alloc(meta.layout))
+                    .unwrap_or_else(|| handle_alloc_error(meta.layout));
+
+                // Initialize the value.
+                ptr.as_ptr().cast::<T>().write(init);
+
+                InitialValue::Value(ptr)
+            }
         };
 
         // The initial value is now properly initialized.
-        // T is now `T` instead of `MaybeUninit<T>`.
 
-        uninit // now init
+        Self {
+            meta,
+            initial_value,
+            _lifetime: PhantomData,
+        }
     }
 
     /// Creates a new instance of `Reserved` for a `MaybeUninit<T>`
@@ -781,21 +860,55 @@ impl<'a> Reserved<'a> {
     ///
     /// This function panics if it fails to allocate a box for `T`.
     fn uninit(meta: ObjectMeta) -> Self {
-        let ptr = unsafe {
-            if meta.layout.size() == 0 {
-                // dangling means zero-sized allocation
-                NonNull::dangling()
-            } else {
-                // SAFETY: `T` is not a zero-sized type.
-                NonNull::new(alloc(meta.layout)).unwrap_or_else(|| handle_alloc_error(meta.layout))
-            }
+        // Being uninit is a valid state for a `MaybeUninit<T>`
+        Self {
+            initial_value: InitialValue::Uninit,
+            meta,
+            _lifetime: PhantomData,
+        }
+    }
+
+    /// Creates a new instance of `Reserved` for a `T` where `T` is the object
+    /// described by the given `ObjectMeta`.
+    ///
+    /// ## Safety
+    ///
+    /// `T` must be safely created using `mem::zeroed()`.
+    ///
+    unsafe fn zeroed(meta: ObjectMeta) -> Self {
+        let initial_value = if meta.layout.size() == 0 {
+            InitialValue::Uninit
+        } else {
+            InitialValue::Zeroed
         };
 
-        // Being uninit is a valid state for a `MaybeUninit<T>`
+        Self {
+            meta,
+            initial_value,
+            _lifetime: PhantomData,
+        }
+    }
+
+    /// Creates a new instance of `Reserved` for a `T` where `T` is the object
+    /// described by the given `ObjectMeta`.
+    ///
+    /// # Safety
+    ///
+    /// The given function must properly initialize the given `T`.
+    unsafe fn func<T>(f: unsafe fn(*mut T)) -> Self {
+        let meta = ObjectMeta::of::<T>();
+
+        let f = transmute(f);
+
+        let initial_value = if meta.layout.size() == 0 {
+            InitialValue::Uninit
+        } else {
+            InitialValue::Fn(f)
+        };
 
         Self {
-            initial_value: ptr.cast(),
             meta,
+            initial_value,
             _lifetime: PhantomData,
         }
     }
@@ -807,22 +920,26 @@ impl<'a> Reserved<'a> {
     ///
     /// `target` must be a valid location for an object of type `T` to be written on.
     unsafe fn consume(self, target: *mut u8) -> ObjectMeta {
-        let initial_value = self.initial_value;
+        // SAFETY: We're moving out the value.
+        let initial_value = ptr::read(&self.initial_value);
         let meta = self.meta;
 
         // `self` mut not be dropped because this would cause the value at `initial_value`
         // to be dropped even though it was moved.
         mem::forget(self);
 
-        // SAFETY: We are moving the value referenced by `initial_value` to
-        // `target`.
-        ptr::copy_nonoverlapping(initial_value.as_ptr(), target, meta.layout.size());
+        match initial_value {
+            InitialValue::Value(ptr) => {
+                // SAFETY: We are moving the value referenced by `initial_value` to
+                // `target`.
+                ptr::copy_nonoverlapping(ptr.as_ptr(), target, meta.layout.size());
 
-        // We have to dealloc the layout though.
-        // SAFETY: The `layout.align()` is never null.
-        let dangling = NonNull::new_unchecked(meta.layout.align() as _);
-        if initial_value != dangling {
-            dealloc(initial_value.as_ptr(), meta.layout);
+                // We have to dealloc the layout though.
+                dealloc(ptr.as_ptr(), meta.layout);
+            }
+            InitialValue::Fn(f) => f(target),
+            InitialValue::Zeroed => ptr::write_bytes(target, 0u8, meta.layout.size()),
+            InitialValue::Uninit => (),
         }
 
         meta
@@ -831,17 +948,16 @@ impl<'a> Reserved<'a> {
 
 impl Drop for Reserved<'_> {
     fn drop(&mut self) {
-        // We have to drop the initial value that was not used.
-        if let Some(drop_fn) = self.meta.drop_fn {
-            // SAFETY: The value is known to be initialized.
-            unsafe { drop_fn(self.initial_value.as_ptr()) };
-        }
+        if let InitialValue::Value(ptr) = self.initial_value {
+            // We have to drop the initial value that was not used.
+            if let Some(drop_fn) = self.meta.drop_fn {
+                // SAFETY: The value is known to be initialized.
+                unsafe { drop_fn(ptr.as_ptr()) };
+            }
 
-        // check for zero-sized types
-        if self.initial_value != NonNull::dangling() {
             // SAFETY: The layout was used to allocate the `T` in `Self::new` and the value
             // that was here was properly dropped beforehand.
-            unsafe { dealloc(self.initial_value.as_ptr(), self.meta.layout) };
+            unsafe { dealloc(ptr.as_ptr(), self.meta.layout) };
         }
     }
 }
