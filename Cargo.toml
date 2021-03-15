@@ -1,6 +1,6 @@
 [package]
 name = "stadium"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Gymore <gymore.contact@gmail.com>"]
 edition = "2018"
 description = "A allocated chunk of memory populated with a fixed set of types"
