@@ -9,7 +9,7 @@ static NEXT_BUILDER_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// Creates a new [`Builder`].
 ///
-/// ## Example
+/// # Examples
 ///
 /// ```rust
 /// let builder = stadium::builder();
@@ -25,7 +25,7 @@ pub fn builder<'a>() -> Builder<'a> {
 
 /// A chunk of allocated memory that stores a bunch of values of different types.
 ///
-/// ## Example
+/// # Examples
 ///
 /// ```rust
 /// let mut builder = stadium::builder();
@@ -75,7 +75,7 @@ pub struct Stadium<'a> {
 impl<'a> Stadium<'a> {
     /// Creates a new [`Builder`].
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// use stadium::Stadium;
@@ -91,7 +91,7 @@ impl<'a> Stadium<'a> {
 
     /// Checks if the given [`Handle`] can be safely used with this [`Stadium`].
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder_1 = stadium::builder();
@@ -117,14 +117,14 @@ impl<'a> Stadium<'a> {
 
     /// Replaces the object referenced by the given [`Handle`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// The provided [`Handle`] must be associated with this [`Stadium`].
     ///
     /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
     /// [`Stadium::is_associated_with`] function.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -148,14 +148,14 @@ impl<'a> Stadium<'a> {
 
     /// Replaces the object referenced by the given [`Handle`] with the given value.
     ///
-    /// ## Panics
+    /// # Panics
     ///
     /// This function panics if `handle` is not associated with this [`Stadium`].
     ///
     /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
     /// [`Stadium::is_associated_with`] function.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -176,14 +176,14 @@ impl<'a> Stadium<'a> {
 
     /// Gets a reference to a value that is part of the [`Stadium`].
     ///
-    /// ## Panics
+    /// # Panics
     ///
     /// This function panics if `handle` is not associated with this `Stadium`.
     ///
     /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
     /// [`Stadium::is_associated_with`] function.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -217,14 +217,14 @@ impl<'a> Stadium<'a> {
 
     /// Gets a reference to a value that is part of the [`Stadium`].
     ///
-    /// ## Panics
+    /// # Panics
     ///
     /// This function panics if `handle` is not associated with this [`Stadium`].
     ///
     /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
     /// [`Stadium::is_associated_with`] function.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -257,14 +257,14 @@ impl<'a> Stadium<'a> {
 
     /// Gets a reference to a value that is part of the [`Stadium`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// The provided [`Handle`] must be associated with this [`Stadium`].
     ///
     /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
     /// [`Stadium::is_associated_with`] function.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -289,14 +289,14 @@ impl<'a> Stadium<'a> {
 
     /// Gets a reference to a value that is part of the [`Stadium`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// The provided [`Handle`] must be associated with this [`Stadium`].
     ///
     /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
     /// [`Stadium::is_associated_with`] function.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -324,7 +324,7 @@ impl<'a> Stadium<'a> {
 
     /// Gets a pointer to the element referenced by the given [`RawHandle`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// This function is unsafe unless:
     ///  * The given [`Handle`] is associated with this [`Stadium`].
@@ -347,7 +347,7 @@ impl<'a> Stadium<'a> {
 
     /// Gets a pointer to the element referenced by the given [`RawHandle`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// This function is unsafe unless:
     ///  * The given [`Handle`] is associated with this [`Stadium`].
@@ -370,7 +370,7 @@ impl<'a> Stadium<'a> {
 
     /// Gets a pointer to the element referenced by the given [`Handle`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// The given [`Handle`] must be associated with this [`Stadium`].
     ///
@@ -390,7 +390,7 @@ impl<'a> Stadium<'a> {
 
     /// Gets a pointer to the element referenced by the given [`Handle`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// The given [`Handle`] must be associated with this [`Stadium`].
     ///
@@ -410,12 +410,12 @@ impl<'a> Stadium<'a> {
 
     /// Swaps the values referenced by `a` and `b` within this [`Stadium`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// * This given handles `a` and `b` must both be associated with this [`Stadium`].
     /// * `a` must be different from `b`
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -447,14 +447,14 @@ impl<'a> Stadium<'a> {
 
     /// Swaps the values referenced by `a` and `b` within this [`Stadium`].
     ///
-    /// ## Panics
+    /// # Panics
     ///
     /// This function panics if one of `a` or `b` is not associated with tihs [`Stadium`].
     ///
     /// To check if a [`Handle`] can be safely used with a given [`Stadium`], use the
     /// [`Stadium::is_associated_with`] function.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -549,7 +549,7 @@ pub struct Builder<'a> {
 impl<'a> Builder<'a> {
     /// Creates a new instance of [`Builder`].
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let builder = stadium::Builder::new();
@@ -567,7 +567,7 @@ impl<'a> Builder<'a> {
 
     /// Prepares the insertion of `init` into the [`Stadium`].
     ///
-    /// ## Panics
+    /// # Panics
     ///
     /// This function panics if it fails to allocate a box for `init`.
     ///
@@ -652,7 +652,7 @@ impl<'a> Builder<'a> {
 
     /// Builds a new [`Stadium`].
     ///
-    /// ## Panics
+    /// # Panics
     ///
     /// This function can panics if one of the following events occure:
     ///  * The builder is empty
@@ -767,7 +767,7 @@ pub struct ObjectMeta {
     layout: Layout,
     /// A function that causes a `T` to be dropped.
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// * The given pointer must reference an initialized `T`.
     drop_fn: Option<unsafe fn(*mut u8)>,
@@ -822,7 +822,7 @@ struct Reserved<'a> {
 impl<'a> Reserved<'a> {
     /// Creates a new instance of `Reserved` from the given initial value.
     ///
-    /// ## Panics
+    /// # Panics
     ///
     /// This function panics if it fails to allocate a box for the given `T`.
     fn new<T: 'a>(init: T) -> Self {
@@ -856,7 +856,7 @@ impl<'a> Reserved<'a> {
     /// Creates a new instance of `Reserved` for a `MaybeUninit<T>`
     /// where `T` is the type of the object described by the given `ObjectMeta`.
     ///
-    /// ## Panics
+    /// # Panics
     ///
     /// This function panics if it fails to allocate a box for `T`.
     fn uninit(meta: ObjectMeta) -> Self {
@@ -871,7 +871,7 @@ impl<'a> Reserved<'a> {
     /// Creates a new instance of `Reserved` for a `T` where `T` is the object
     /// described by the given `ObjectMeta`.
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// `T` must be safely created using `mem::zeroed()`.
     ///
@@ -916,7 +916,7 @@ impl<'a> Reserved<'a> {
     /// Consumes `self` and turns it into its inner `T`. The value is written on the
     /// given pointer `target`.
     ///
-    /// ## Safety
+    /// # Safety
     ///
     /// `target` must be a valid location for an object of type `T` to be written on.
     unsafe fn consume(self, target: *mut u8) -> ObjectMeta {
@@ -1007,7 +1007,7 @@ impl<T> Eq for Handle<T> {}
 impl<T> Handle<T> {
     /// Converts this [`Handle`] into a [`RawHandle`].
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -1033,13 +1033,13 @@ pub struct RawHandle {
 impl RawHandle {
     /// Recreate an [`Handle`] from this [`RawHandle`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     ///  * The generic type parameter `T` must be the same as the original [`Handle`]
     /// that was used to produce this [`RawHandle`].
     ///  * The given [`Stadium`] must be the one associated with the original handle.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
@@ -1069,13 +1069,13 @@ impl RawHandle {
 
     /// Recreate an [`Handle`] from this [`RawHandle`].
     ///
-    /// ## Safety
+    /// # Safety
     ///
     ///  * The generic type parameter `T` must be the same as the original [`Handle`]
     /// that was used to produce this `RawHandle`.
     ///  * The given [`Builder`] must be the one associated with the original handle.
     ///
-    /// ## Example
+    /// # Examples
     ///
     /// ```rust
     /// let mut builder = stadium::builder();
